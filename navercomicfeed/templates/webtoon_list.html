@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title -%}
+  {{ super() }} &mdash; 웹툰
+{%- endblock %}
+{% block body %}
+  {{ super() }}
+  <ul>
+    {% for title_id, title in comics|dictsort(by='value') %}
+      <li><a href="{{ url_for('feed', type='webtoon', title_id=title_id) }}">
+            {{- title -}}
+          </a></li>
+    {% endfor %}
+  </ul>
+{% endblock %}
