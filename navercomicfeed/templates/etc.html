@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title -%}
+  {{ super() }} &mdash; 도전만화 및 기타
+{%- endblock %}
+{% block body %}
+  {{ super() }}
+  <form method="get" action="{{ url_for('etc') }}">
+    <input type="text" name="url" value="{{ url }}" />
+    <button type="submit">확인</button>
+    {% if error %}
+      <p>잘못된 URL입니다. 웹툰 작품의 URL을 복사해서 붙여주세요.</p>
+    {% endif %}
+  </form>
+{% endblock %}

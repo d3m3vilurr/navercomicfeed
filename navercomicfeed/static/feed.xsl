@@ -7,7 +7,7 @@
   <xsl:output method="html" encoding="utf-8"/>
 	
   <xsl:template match="/">
-    <html>
+    <html xmlns="http://www.w3.org/1999/xhtml">
       <head>
         <title>
           <xsl:apply-templates select="/atom:feed/atom:title/text()" />

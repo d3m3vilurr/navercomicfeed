@@ -28,10 +28,12 @@ an initial RDBMS schema installation script.
 """
 import os
 import os.path
+import re
 import urllib2
 import contextlib
 import hmac
 import hashlib
+import urlparse
 from flask import *
 from flaskext.cache import Cache
 import lxml.html
@@ -113,6 +115,27 @@ def bestchallenge_comics():
 def bestchallenge_list():
     comics = dict(bestchallenge_comics())
     return render_template('bestchallenge_list.html', comics=comics)
+
+
+@app.route('/etc')
+def etc():
+    try:
+        url = request.values['url']
+    except KeyError:
+        return render_template('etc.html')
+    p = urlparse.urlparse(url)
+    if p.scheme in ('http', 'https') and p.hostname == 'comic.naver.com':
+        m = re.match(r'^/(webtoon|bestChallenge|challenge)/', p.path)
+        if m:
+            type = m.group(1)
+            query = werkzeug.urls.url_decode(p.query)
+            try:
+                title_id = query['titleId']
+            except KeyError:
+                pass
+            else:
+                return redirect(url_for('feed', type=type, title_id=title_id))
+    return render_template('etc.html', url=url, error=True)
 
 
 @app.route('/<any(webtoon,bestchallenge,challenge):type>/<int:title_id>.xml')
