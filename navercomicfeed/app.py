@@ -1,6 +1,30 @@
 """:mod:`navercomicfeed.app`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+This module several web pages including: lists of comic series, Atom feed XML
+pages for series, a proxy that works around referrer-blocking images,
+an initial RDBMS schema installation script.
+
+.. data:: WEBTOON_LIST_URL
+
+   The URL of Naver Comic webtoons list.
+
+.. data:: BESTCHALLENGE_LIST_URL
+
+   The URL of Naver Comic best challenge comics list.
+
+.. data:: URL_TYPES
+
+   The URL templates.
+
+.. function:: app
+
+   The Flask application, that also is a WSGI application.
+
+.. data:: cache
+
+   The cache object powered by Flask-Cache.
+
 """
 import os
 import os.path
@@ -38,6 +62,7 @@ cache = Cache(app)
 
 @app.before_request
 def before_request():
+    """Sets up the database engine and the ORM session."""
     g.engine = sqlalchemy.create_engine(app.config['DATABASE'])
     Session.configure(bind=g.engine)
 

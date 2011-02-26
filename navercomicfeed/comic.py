@@ -1,6 +1,37 @@
 """:mod:`navercomicfeed.comic` --- Comics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+This module implements the crawler and RDMBS-powered cache for it.
+
+.. class:: Session
+
+   The ORM session class.
+
+.. class:: Base
+
+   The declarative base class for object-relational mapping.
+
+.. data:: POOL_SIZE
+
+   The size of workers for fetching comics. 20 by default.
+
+.. data:: TZINFO
+
+   The time zone of Naver Comic service. Asia/Seoul by default.
+
+.. data:: TITLE_XPATH
+.. data:: DESCRIPTION_XPATH
+.. data:: ARTIST_URL_FORMAT
+.. data:: ARTIST_PATTERN
+.. data:: COMIC_XPATH
+.. data:: COMIC_TITLE_XPATH
+.. data:: COMIC_URL_XPATH
+.. data:: COMIC_PUBLISHED_AT_XPATH
+.. data:: COMIC_IMAGE_URLS_XPATH
+.. data:: COMIC_DESCRIPTION_XPATH
+
+   Several :class:`lxml.etree.XPath` for crawling.
+
 """
 import re
 import collections
@@ -48,6 +79,36 @@ Base = sqlalchemy.ext.declarative.declarative_base()
 
 
 class Title(object):
+    """A comic title that has one or more series of comics.
+
+    :param url: an :attr:`url` of the comic title
+    :type url: :class:`basestring`
+    :param session: an orm :attr:`session` instance
+    :type session: :class:`Session`
+    :param offset: an optional offset. internal-use only. default is 0
+    :type offset: :class:`int`, :class:`long`
+    :param limit: an optional list size. internal-use only. ``None`` by default
+    :type limit: :class:`int`, :class:`long`
+
+    .. attribute:: url
+
+       The URL of the comic title.
+
+    .. attribute:: session
+
+       The ORM session.
+
+    .. attribute:: offset
+
+       A :class:`Title` object can be limited by its offset. Internal-use
+       only purpose.
+
+    .. attribute:: limit
+
+       A :class:`Title` object can be limited by its list size. Internal-use
+       only purpose.
+
+    """
 
     __slots__ = ('url', 'session', 'offset', 'limit', '_title', '_description',
                  '_artists', '_list_html', '_list_page')
@@ -71,12 +132,14 @@ class Title(object):
 
     @property
     def title(self):
+        """The title string."""
         if not hasattr(self, '_title'):
             self._title = TITLE_XPATH(self._get_list_html())[0]
         return self._title
 
     @property
     def description(self):
+        """The description string."""
         if not hasattr(self, '_description'):
             self._title = TITLE_XPATH(self._get_list_html())[0]
         return self._title
@@ -97,6 +160,7 @@ class Title(object):
 
     @property
     def artists(self):
+        """The :class:`Artist` list."""
         if not hasattr(self, '_artists'):
             self._artists = []
             self._fetch_artists(self._get_list_html())
@@ -233,9 +297,27 @@ class Title(object):
 
 
 class Artist(collections.namedtuple('BaseArtist', 'id name url')):
+    """A comic artist. It is a :class:`~collections.namedtuple` so its
+    attributes have their tuple position: (:attr:`id`, :attr:`name`,
+    :attr:`url`).
+
+    .. attribute:: id
+
+       The artist ID which is used by Naver Comic service.
+
+    .. attribute:: name
+
+       The artist name.
+
+    .. attribute:: url
+
+       An optional Naver Blog URL of the artist.
+
+    """
 
     @property
     def urls(self):
+        """The list of URLs related to the artist. It has one or more URLs."""
         if self.url:
             yield self.url
         yield ARTIST_URL_FORMAT.format(self)
@@ -245,6 +327,46 @@ class Artist(collections.namedtuple('BaseArtist', 'id name url')):
 
 
 class Comic(object):
+    """An each comic of series. Interchangeable with :class:`StoredComic`.
+
+    :param url: the url of the comic
+    :type url: :class:`basestring`
+    :param no: the unique number of the comic used by Naver Comic service
+    :type no: :class:`int`, :class:`long`
+    :param title: the title of the comic, *not its series name*
+    :type title: :class:`basestring`
+    :param image_urls: the list of image urls contain the comic
+    :type image_urls: iterable object
+    :param description: the additional text written by the author
+    :type description: :class:`basestring`
+    :param published_at: the published time
+    :type published_at: :class:`datetime.datetime`
+
+    .. attribute:: url
+
+       The URL of the comic.
+
+    .. attribute:: no
+
+       The unique number of the comic used by Naver Comic service.
+
+    .. attribute:: title
+
+       The title of the comic, *not its series name*.
+
+    .. attribute:: image_urls
+
+       The list of image URLs contain the comic.
+
+    .. attribute:: description
+
+       An additional text written by the author.
+
+    .. attribute:: published_at
+
+       The published :class:`~datetime.datetime`.
+
+    """
 
     __slots__ = ('url', 'no', 'title', 'image_urls', 'description',
                  'published_at')
@@ -255,12 +377,21 @@ class Comic(object):
             setattr(self, attr, l[attr])
 
     def store(self, session, title_url):
+        """Stores the comic.
+
+        :param session: an orm session
+        :type session: :class:`Session`
+        :param title_url: the series title url
+        :type title_url: :class:`basestring`
+
+        """
         comic = self.stored_comic
         comic.title_url = title_url
         session.add(comic)
 
     @property
     def stored_comic(self):
+        """:class:`StoredComic`, its persist version."""
         attrs = dict((attr, getattr(self, attr)) for attr in self.__slots__)
         return StoredComic(**attrs)
 
@@ -269,6 +400,14 @@ class Comic(object):
 
 
 class StoredComic(Base):
+    """Interchangeable, compatible, but persist version of :class:`Comic`
+    object.
+
+    .. attribute:: title_url
+
+       the series title URL.
+
+    """
 
     title_url = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
     url = sqlalchemy.Column(sqlalchemy.String, unique=True)
