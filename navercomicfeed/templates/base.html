@@ -7,11 +7,25 @@
         네이버 웹툰 RSS
       {%- endblock -%}
     </title>
+    <link rel="stylesheet" type="text/css" media="screen"
+          href="{{ url_for('static', filename='style.css') }}" />
+    <script
+      src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js">
+    </script>
   </head>
   <body>
-    {% block body %}
-      <h1>네이버 웹툰 RSS</h1>
-    {% endblock %}
+    <header>
+      <h1><a href="{{ url_for('home') }}">네이버 웹툰 <em>RSS</em></a></h1>
+      <nav>
+        <a href="{{ url_for('webtoon_list') }}">웹툰</a>
+        <a href="{{ url_for('bestchallenge_list') }}">베스트 도전</a>
+        <a href="{{ url_for('etc') }}">도전만화 및 기타</a>
+      </nav>
+    </header>
+    <div class="body {% block body_class %}{% endblock %}">
+      {% block body %}
+      {% endblock %}
+    </div>
     <footer>
       <p>이 프로그램은 <a href="http://www.gnu.org/licenses/agpl.html"><abbr
          title="GNU Affero General Public License">AGPL</abbr></a> 하에

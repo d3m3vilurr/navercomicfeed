@@ -34,6 +34,7 @@ import contextlib
 import hmac
 import hashlib
 import urlparse
+import threading
 from flask import *
 from flaskext.cache import Cache
 import lxml.html
@@ -69,23 +70,71 @@ def before_request():
     Session.configure(bind=g.engine)
 
 
+@app.context_processor
+def context_processor():
+    return {'proxy_url_for': proxy_url_for}
+
+
 @app.route('/')
 def home():
     return ''
 
 
-@app.route('/webtoon')
-@cache.cached(timeout=3600 * 6)
-def webtoon_list():
+def title_thumbnail_url(title_id):
+    cache_key = 'title_thumbnail_{0}'.format(title_id)
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+    url = URL_TYPES['webtoon'].format(title_id)
+    with contextlib.closing(urllib2.urlopen(url)) as f:
+        html = f.read()
+        m = re.search(r'<div class="thumb">(.+?)</div>', html)
+        html = m.group(1)
+        m = re.search(r'src="(https?://.+?)"', html)
+        return m.group(1)
+
+
+def comics_with_thumbnails(comics):
+    def store_title_thumbnail(cond, result, title_id):
+        thumb_url = title_thumbnail_url(title_id)
+        with cond:
+            result[title_id] = result[title_id][0], thumb_url
+            cond.notify()
+    workers = []
+    cond = threading.Condition()
+    result = {}
+    for title_id, title in comics:
+        result[title_id] = title, None
+        if sum(1 for w in workers if w.is_alive()) > 30:
+            with cond:
+                cond.wait()
+            workers = [w for w in workers if w.is_alive()]
+        worker = threading.Thread(target=store_title_thumbnail,
+                                  args=(cond, result, title_id))
+        worker.start()
+        workers.append(worker)
+    for worker in workers:
+        worker.join()
+    comics = [(k, v[0], v[1]) for k, v in result.iteritems()]
+    comics.sort(key=lambda (_, title, __): title)
+    return comics
+
+
+def webtoon_comics():
     html = lxml.html.parse(WEBTOON_LIST_URL)
     links = html.xpath('//*[@id="content"]//*[@class="section"]/ul/li/a')
-    comics = {}
     for a in links:
         title = a.attrib['title']
         href = a.attrib['href']
         query = href[href.index('?') + 1:]
         title_id = int(werkzeug.urls.url_decode(query)['titleId'])
-        comics[title_id] = title
+        yield title_id, title
+
+
+@app.route('/webtoon')
+@cache.cached(timeout=3600 * 6)
+def webtoon_list():
+    comics = comics_with_thumbnails(webtoon_comics())
     return render_template('webtoon_list.html', comics=comics)
 
 
@@ -113,7 +162,7 @@ def bestchallenge_comics():
 @app.route('/bestchallenge')
 @cache.cached(timeout=3600 * 6)
 def bestchallenge_list():
-    comics = dict(bestchallenge_comics())
+    comics = comics_with_thumbnails(bestchallenge_comics())
     return render_template('bestchallenge_list.html', comics=comics)
 
 
@@ -138,6 +187,28 @@ def etc():
     return render_template('etc.html', url=url, error=True)
 
 
+def proxy_url_for(url):
+    """Returns a proxied image ``url``.
+
+    :param url: an image url
+    :type url: :class:`basestring`
+    :returns: an image url of proxy version
+    :rtype: :class:`basestring`
+
+    """
+    try:
+        imgproxy_key = app.config['IMGPROXY_KEY']
+        imgproxy_secret_key = app.config['IMGPROXY_SECRET_KEY']
+        imgproxy_url = app.config['IMGPROXY_URL']
+    except KeyError:
+        return url_for('image_proxy', url=url, _external=True)
+    else:
+        hash = hmac.new(imgproxy_secret_key, url, hashlib.sha256)
+        sig = hash.hexdigest()
+        query = {'url': url, 'key': imgproxy_key, 'sig': sig}
+        return imgproxy_url + '?' + werkzeug.urls.url_encode(query)
+
+
 @app.route('/<any(webtoon,bestchallenge,challenge):type>/<int:title_id>.xml')
 @cache.cached(timeout=120)
 def feed(type, title_id):
@@ -151,21 +222,7 @@ def feed(type, title_id):
         pass
     else:
         title = title[:limit]
-    try:
-        imgproxy_key = app.config['IMGPROXY_KEY']
-        imgproxy_secret_key = app.config['IMGPROXY_SECRET_KEY']
-        imgproxy_url = app.config['IMGPROXY_URL']
-    except KeyError:
-        def proxy_fn(url):
-            return url_for('image_proxy', url=url, _external=True)
-    else:
-        def imgproxy_sig(url):
-            hash = hmac.new(imgproxy_secret_key, url, hashlib.sha256)
-            return hash.hexdigest()
-        def proxy_fn(url):
-            query = {'url': url, 'key': imgproxy_key, 'sig': imgproxy_sig(url)}
-            return imgproxy_url + '?' + werkzeug.urls.url_encode(query)
-    xml = render_template('feed.xml', title=title, proxy_url_for=proxy_fn)
+    xml = render_template('feed.xml', title=title)
     types = ['text/xml', 'application/atom+xml']
     type = request.accept_mimetypes.best_match(types)
     return Response(response=xml, content_type=type)

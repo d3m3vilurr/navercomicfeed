@@ -1,6 +1,7 @@
 syntax:glob
 NaverComicFeed.egg-info
 .DS_Store
+.cache
 .*.swp
 *.pyc
 *.cfg

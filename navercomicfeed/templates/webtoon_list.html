@@ -1,14 +1,20 @@
 {% extends 'base.html' %}
 {% block title -%}
-  {{ super() }} &mdash; 웹툰
+  {{ super() }} &mdash; 베스트 도전
 {%- endblock %}
+{% block body_class %}
+  titles
+{% endblock %}
 {% block body %}
   {{ super() }}
-  <ul>
-    {% for title_id, title in comics|dictsort(by='value') %}
-      <li><a href="{{ url_for('feed', type='webtoon', title_id=title_id) }}">
-            {{- title -}}
-          </a></li>
+  <div class="titles">
+    {% for title_id, title, thumb_url in comics %}
+      <div class="title">
+        <img src="{{ proxy_url_for(thumb_url) }}" />
+        <a href="{{ url_for('feed', type='webtoon',
+                    title_id=title_id, limit=15) }}">{{ title }}</a>
+        </a>
+      </div>
     {% endfor %}
-  </ul>
+  </div>
 {% endblock %}

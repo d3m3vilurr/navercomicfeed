@@ -1,0 +1,27 @@
+body, p { font-family: '나눔고딕', NanumGothic, '맑은 고딕', 'Malgun Gothic',
+                       '돋움', Dotum, sans-serif;
+          color: #1C1919; line-height: 150%; }
+a { color: #456F74; text-decoration: none; border-bottom: 1px solid #D3CBBD; }
+a:hover { border-bottom-color: #456F74; }
+body { margin: 0 auto; padding: 0; width: 500px; background-color: #403D3C; }
+header, .body, footer { display: block; padding: 0.5em 1em;
+                        background-color: white; }
+header { margin-bottom: 1em; padding: 1em; }
+header h1 { font-weight: normal; margin: 0; }
+header h1 a { color: #1C1919; border-bottom: none; }
+header h1 em { font-family: Helvetica, 'Helvetica Neue', Helvetica, sans-serif;
+               font-weight: bold; font-style: normal; color: #EB5937; }
+header nav { margin-top: 1em; font-size: normal; }
+.body { margin-bottom: 1em; }
+footer { clear: left; margin-top: 1em; font-size: small; }
+
+.titles { float: left; clear: both; padding: 0; }
+.titles .title { width: 125px; float: left; }
+.titles .title img { display: block; width: 125px; height: 101px; }
+.titles .title a { display: block; width: 105px; height: 91px;
+                   position: absolute; margin-top: -101px; border: none;
+                   padding: 5px 10px; font-size: small; color: white;
+                   text-shadow: black 1px 1px 1px; line-height: 120%; }
+* html .titles .title a { width: 125px; height: 101px; }
+*+html .titles .title a { width: 125px; height: 101px; }
+.titles .title a:hover { background-color: rgba(0, 0, 0, 0.7); }
