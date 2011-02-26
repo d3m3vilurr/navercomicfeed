@@ -3,4 +3,5 @@ NaverComicFeed.egg-info
 .DS_Store
 .*.swp
 *.pyc
+*.cfg
 *.sqlite

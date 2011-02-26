@@ -1,0 +1,4 @@
+article { display: block; border: 1px solid silver; }
+time { color: gray; }
+time .date { font-weight: bolder; padding-right: 0.4em; }
+time .time { color: silver; }
