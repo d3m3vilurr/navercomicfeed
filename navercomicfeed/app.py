@@ -35,6 +35,10 @@ import hmac
 import hashlib
 import urlparse
 import threading
+try:
+    import cStringIO as StringIO
+except ImportError:
+    import StringIO
 from flask import *
 from flaskext.cache import Cache
 import lxml.html
@@ -91,7 +95,9 @@ def title_thumbnail_url(title_id):
         m = re.search(r'<div class="thumb">(.+?)</div>', html)
         html = m.group(1)
         m = re.search(r'src="(https?://.+?)"', html)
-        return m.group(1)
+        img_src = m.group(1)
+        cache.set(cache_key, img_src)
+        return img_src
 
 
 def comics_with_thumbnails(comics):
@@ -229,21 +235,32 @@ def feed(type, title_id):
 
 
 @app.route('/img')
-@cache.cached(timeout=3600 * 6)
 def image_proxy():
     imgproxy_cfgs = 'URL', 'KEY', 'SECRET_KEY'
     if all('IMGPROXY_' + c in app.config for c in imgproxy_cfgs):
         abort(403)
+    url = request.values['url']
+    key = hashlib.md5(url).hexdigest()
+    type_key = 'imageproxy_t_{0}'.format(key)
+    body_key = 'imageproxy_b_{0}'.format(key)
+    content_type = cache.get(type_key)
+    body = cache.get(body_key)
+    if content_type and body:
+        return Response(response=body, content_type=content_type)
     def fetch():
-        url = request.values['url']
         with contextlib.closing(urllib2.urlopen(url)) as f:
-            yield f.info()['Content-Type']
+            content_type = f.info()['Content-Type']
+            yield content_type
+            bytes = StringIO.StringIO()
             while True:
                 buffer = f.read(4096)
                 if buffer:
                     yield buffer
+                    bytes.write(buffer)
                 else:
                     break
+        cache.set(type_key, content_type)
+        cache.set(body_key, bytes.getvalue())
     it = fetch()
     content_type = it.next()
     return Response(response=it, content_type=content_type)
