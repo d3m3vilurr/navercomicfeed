@@ -29,6 +29,7 @@ an initial RDBMS schema installation script.
 import os
 import os.path
 import re
+import functools
 import urllib2
 import contextlib
 import hmac
@@ -65,6 +66,54 @@ try:
 except (KeyError, IOError):
     pass
 cache = Cache(app)
+
+
+def admin_only(function):
+    """The decorator that makes view function to allow only administrators.
+    It assumes the configuration variable :data:`ADMIN_PRED_FN`, a function
+    that takes ``user`` and ``password`` and returns whether the given
+    credential has an administrator permission.
+
+    .. function:: config.ADMIN_PRED_FN(user, password)
+
+       The predicate function that tests a ``user``/``password`` credential
+       has an administrator permission.
+
+       :param user: an username inputted through HTTP basic auth
+       :type user: :class:`basestring`
+       :param password: a password inputted through HTTP basic auth
+       :type password: :class:`basestring`
+       :returns: whether the given credential has an administrator permission
+       :rtype: :class:`bool`
+
+    If it isn't defined, it denies all access tries.
+
+    :param function: a view function
+    :type function: callable object
+    :returns: a decorated view functions which allows only administrators
+    :rtype: callable object
+
+    """
+    @functools.wraps(function)
+    def replaced_function(*args, **kwargs):
+        try:
+            admin_pred_fn = app.config['ADMIN_PRED_FN']
+        except KeyError:
+            abort(403)
+        else:
+            auth = request.authorization
+            if auth:
+                user = auth.username
+                password = auth.password
+            else:
+                user = password = None
+            if not admin_pred_fn(user, password):
+                realm = 'NaverComicFeed Administrator'
+                headers = {'WWW-Authenticate':
+                           'Basic realm="{0}"'.format(realm)}
+                return Response(realm, 401, headers)
+        return function(*args, **kwargs)
+    return replaced_function
 
 
 @app.before_request
@@ -267,24 +316,19 @@ def image_proxy():
 
 
 @app.route('/admin/setup')
+@admin_only
 def admin_setup():
-    try:
-        admin_pred_fn = app.config['ADMIN_PRED_FN']
-    except KeyError:
-        abort(403)
-    else:
-        auth = request.authorization
-        if auth:
-            user = auth.username
-            password = auth.password
-        else:
-            user = password = None
-        if not admin_pred_fn(user, password):
-            realm = 'NaverComicFeed Administrator'
-            headers = {'WWW-Authenticate': 'Basic realm="{0}"'.format(realm)}
-            return Response(realm, 401, headers)
     Base.metadata.create_all(g.engine)
     return 'Successfully tables created.'
+
+
+@app.route('/admin/clearcache')
+@admin_only
+def admin_clear_cache():
+    if hasattr(cache, 'cache') and hasattr(cache.cache, 'clear'):
+        cache.cache.clear()
+        return 'Cached data got cleared.'
+    return 'Cached data cannot be cleared.'
 
 
 if __name__ == '__main__':
