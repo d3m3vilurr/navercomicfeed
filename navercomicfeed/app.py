@@ -36,6 +36,7 @@ import hmac
 import hashlib
 import urlparse
 import threading
+import multiprocessing
 import logging
 try:
     import cStringIO as StringIO
@@ -134,13 +135,29 @@ def home():
     return ''
 
 
-def title_thumbnail_url(title_id):
-    logger = logging.getLogger(__name__ + '.title_thumbnail_url')
+def get_title_thumbnail_url(title_id, pair=False, default=None):
+    """Gets the thumbnail image URL of the title.
+    
+    :param title_id: the title id
+    :type title_id: :class:`int`, :class:`long`
+    :param pair: if ``True`` it returns a :class:`tuple`. otherwise it returns
+                 just a thumbnail url. ``False`` by default
+    :type pair: :class:`bool`
+    :param default: a default value used when there's no cache. if not present,
+                    gets thumbnail url from web
+    :returns: a pair of ``(title_id, thumbnail_url)`` or just a thubnail url
+              if ``pair`` is ``False``
+    :rtype: :class:`tuple`, :class:`basestring`
+
+    """
+    logger = logging.getLogger(__name__ + '.get_title_thumbnail_url')
     cache_key = 'title_thumbnail_{0}'.format(title_id)
     cached = cache.get(cache_key)
     if cached:
         logger.info('used cached of title %d', title_id)
-        return cached
+        return (title_id, cached) if pair else cached
+    if default is not None:
+        return default
     url = URL_TYPES['webtoon'].format(title_id)
     with contextlib.closing(urllib2.urlopen(url)) as f:
         html = f.read()
@@ -150,37 +167,20 @@ def title_thumbnail_url(title_id):
         m = re.search(r'src="(https?://.+?)"', html)
         img_src = m.group(1)
         cache.set(cache_key, img_src)
-        return img_src
+        return (title_id, img_src) if pair else img_src
+
+
+@app.route('/thumbnails/<int:title_id>')
+def title_thumbnail_url(title_id):
+    url = get_title_thumbnail_url(title_id)
+    return redirect(proxy_url_for(url), 307)
 
 
 def comics_with_thumbnails(comics):
-    pool_size = 30
-    logger = logging.getLogger(__name__ + '.comics_with_thumbnails')
-    def store_title_thumbnail(cond, result, title_id):
-        thumb_url = title_thumbnail_url(title_id)
-        with cond:
-            result[title_id] = result[title_id][0], thumb_url
-            cond.notify()
-    workers = []
-    cond = threading.Condition()
-    result = {}
-    for title_id, title in comics:
-        result[title_id] = title, None
-        if sum(1 for w in workers if w.is_alive()) > pool_size:
-            logger.info('pool is full; waiting for new worker')
-            with cond:
-                cond.wait()
-            workers = [w for w in workers if w.is_alive()]
-            logger.info('place(s) has made in the pool (%d/%d)',
-                        len(workers), pool_size)
-        worker = threading.Thread(target=store_title_thumbnail,
-                                  args=(cond, result, title_id))
-        worker.start()
-        logger.info('worker for %d has started', title_id)
-        workers.append(worker)
-    for worker in workers:
-        worker.join()
-    comics = [(k, v[0], v[1]) for k, v in result.iteritems()]
+    get_url = functools.partial(url_for, 'title_thumbnail_url')
+    comics = [(id, title,
+               get_title_thumbnail_url(id, default=get_url(title_id=id)))
+              for id, title in comics]
     comics.sort(key=lambda (_, title, __): title)
     return comics
 
@@ -225,9 +225,13 @@ def bestchallenge_comics():
 
 
 @app.route('/bestchallenge')
-@cache.cached(timeout=3600 * 6)
 def bestchallenge_list():
-    comics = comics_with_thumbnails(bestchallenge_comics())
+    key = 'bestchallenge_list'
+    comics = cache.get(key)
+    if not comics:
+        comics = sorted(bestchallenge_comics(), key=lambda (_, title): title)
+        cache.set(key, comics)
+    comics = comics_with_thumbnails(comics)
     return render_template('bestchallenge_list.html', comics=comics)
 
 
@@ -252,15 +256,21 @@ def etc():
     return render_template('etc.html', url=url, error=True)
 
 
-def proxy_url_for(url):
+def proxy_url_for(url, ignore_relative_path=True):
     """Returns a proxied image ``url``.
 
     :param url: an image url
     :type url: :class:`basestring`
+    :param ignore_relative_path: returns the given ``url`` without any
+                                 modification if ``url`` doesn't start with
+                                 ``http://`` or ``https://``
     :returns: an image url of proxy version
     :rtype: :class:`basestring`
 
     """
+    if ignore_relative_path and \
+       not (url.startswith('http://') or url.startswith('https://')):
+        return url
     try:
         imgproxy_key = app.config['IMGPROXY_KEY']
         imgproxy_secret_key = app.config['IMGPROXY_SECRET_KEY']
