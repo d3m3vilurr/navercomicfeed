@@ -36,6 +36,7 @@ import hmac
 import hashlib
 import urlparse
 import threading
+import logging
 try:
     import cStringIO as StringIO
 except ImportError:
@@ -134,13 +135,16 @@ def home():
 
 
 def title_thumbnail_url(title_id):
+    logger = logging.getLogger(__name__ + '.title_thumbnail_url')
     cache_key = 'title_thumbnail_{0}'.format(title_id)
     cached = cache.get(cache_key)
     if cached:
+        logger.info('used cached of title %d', title_id)
         return cached
     url = URL_TYPES['webtoon'].format(title_id)
     with contextlib.closing(urllib2.urlopen(url)) as f:
         html = f.read()
+        logger.info('downloaded title %d from %s', title_id, url)
         m = re.search(r'<div class="thumb">(.+?)</div>', html)
         html = m.group(1)
         m = re.search(r'src="(https?://.+?)"', html)
@@ -150,6 +154,8 @@ def title_thumbnail_url(title_id):
 
 
 def comics_with_thumbnails(comics):
+    pool_size = 30
+    logger = logging.getLogger(__name__ + '.comics_with_thumbnails')
     def store_title_thumbnail(cond, result, title_id):
         thumb_url = title_thumbnail_url(title_id)
         with cond:
@@ -160,13 +166,17 @@ def comics_with_thumbnails(comics):
     result = {}
     for title_id, title in comics:
         result[title_id] = title, None
-        if sum(1 for w in workers if w.is_alive()) > 30:
+        if sum(1 for w in workers if w.is_alive()) > pool_size:
+            logger.info('pool is full; waiting for new worker')
             with cond:
                 cond.wait()
             workers = [w for w in workers if w.is_alive()]
+            logger.info('place(s) has made in the pool (%d/%d)',
+                        len(workers), pool_size)
         worker = threading.Thread(target=store_title_thumbnail,
                                   args=(cond, result, title_id))
         worker.start()
+        logger.info('worker for %d has started', title_id)
         workers.append(worker)
     for worker in workers:
         worker.join()
@@ -332,5 +342,6 @@ def admin_clear_cache():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     app.run(debug=True)
 
