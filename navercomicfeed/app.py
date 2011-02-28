@@ -109,7 +109,7 @@ def admin_only(function):
                 password = auth.password
             else:
                 user = password = None
-            if not admin_pred_fn(user, password):
+            if not auth or not admin_pred_fn(user, password):
                 realm = 'NaverComicFeed Administrator'
                 headers = {'WWW-Authenticate':
                            'Basic realm="{0}"'.format(realm)}
