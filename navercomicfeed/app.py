@@ -30,13 +30,12 @@ import os
 import os.path
 import re
 import functools
-import urllib2
+import itertools
 import contextlib
 import hmac
 import hashlib
 import urlparse
-import threading
-import multiprocessing
+import urllib2
 import logging
 try:
     import cStringIO as StringIO
@@ -185,6 +184,20 @@ def comics_with_thumbnails(comics):
     return comics
 
 
+def cached_comics(cache_key, comics):
+    result = cache.get(cache_key)
+    if not result:
+        result = []
+        ids = set()
+        for title_id, title in comics:
+            if title_id not in ids:
+                result.append((title_id, title))
+                ids.add(title_id)
+        result.sort(key=lambda (_, title): title)
+        cache.set(cache_key, result)
+    return result
+
+
 def webtoon_comics():
     html = lxml.html.parse(WEBTOON_LIST_URL)
     links = html.xpath('//*[@id="content"]//*[@class="section"]/ul/li/a')
@@ -197,9 +210,9 @@ def webtoon_comics():
 
 
 @app.route('/webtoon')
-@cache.cached(timeout=3600 * 6)
 def webtoon_list():
-    comics = comics_with_thumbnails(webtoon_comics())
+    comics = cached_comics('webtoon_list', webtoon_comics())
+    comics = comics_with_thumbnails(comics)
     return render_template('webtoon_list.html', comics=comics)
 
 
@@ -226,11 +239,7 @@ def bestchallenge_comics():
 
 @app.route('/bestchallenge')
 def bestchallenge_list():
-    key = 'bestchallenge_list'
-    comics = cache.get(key)
-    if not comics:
-        comics = sorted(bestchallenge_comics(), key=lambda (_, title): title)
-        cache.set(key, comics)
+    comics = cached_comics('bestchallenge_list', bestchallenge_comics())
     comics = comics_with_thumbnails(comics)
     return render_template('bestchallenge_list.html', comics=comics)
 
