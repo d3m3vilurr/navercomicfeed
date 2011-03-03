@@ -47,6 +47,7 @@ import lxml.html
 import werkzeug.urls
 import sqlalchemy
 from navercomicfeed.comic import *
+import navercomicfeed.pool
 
 
 WEBTOON_LIST_URL = 'http://comic.naver.com/webtoon/creation.nhn?view=list'
@@ -217,24 +218,34 @@ def webtoon_list():
 
 
 def bestchallenge_comics():
-    page = 1
-    url = BESTCHALLENGE_LIST_URL + '?page={0}'
-    prev_title_ids = set()
-    while True:
-        html = lxml.html.parse(url.format(page))
+    logger = logging.getLogger(__name__ + '.bestchallenge_comics')
+    url_format = BESTCHALLENGE_LIST_URL + '?page={0}'
+    last_url = url_format.format(999999)
+    html = lxml.html.parse(last_url)
+    logger.info(last_url)
+    last = html.xpath('//*[@id="content"]//*[contains(concat(" ", @class,'
+                      '" "), " pagenavigation ")]/*[@class="current"]/text()')
+    last_html = html
+    last = int(last[0])
+    def get_html(page):
+        if page == last:
+            return last_html
+        url = url_format.format(page)
+        f = urllib2.urlopen(url)
+        logger.info(url)
+        html = lxml.html.parse(f)
+        f.close()
+        return html
+    pool = navercomicfeed.pool.Pool(10)
+    htmls = pool.map(get_html, xrange(1, last + 1))
+    for html in htmls:
         links = html.xpath('//*[@id="content"]//table[@class="challengeList"]'
                            '//td/*[@class="fl"]/a')
-        title_ids = set()
         for a in links:
             href = a.attrib['href']
             query = href[href.index('?') + 1:]
             title_id = int(werkzeug.urls.url_decode(query)['titleId'])
             yield title_id, a.xpath('./img/@title')[0]
-            title_ids.add(title_id)
-        if title_ids.issubset(prev_title_ids):
-            break
-        prev_title_ids.update(title_ids)
-        page += 1
 
 
 @app.route('/bestchallenge')
