@@ -159,7 +159,7 @@ def get_title_thumbnail_url(title_id, pair=False, default=None):
     if default is not None:
         return default
     url = URL_TYPES['webtoon'].format(title_id)
-    with navercomicfeed.urlfetch.fetch(url, cache) as f:
+    with navercomicfeed.urlfetch.fetch(url, cache, 120) as f:
         html = f.read()
         logger.info('downloaded title %d from %s', title_id, url)
         m = re.search(r'<div class="thumb">(.+?)</div>', html)
@@ -213,7 +213,7 @@ def webtoon_comics():
 @app.route('/webtoon')
 def webtoon_list():
     comics = cached_comics('webtoon_list', webtoon_comics())
-    comics = comics_with_thumbnails(comics)
+    comics = comics_with_thumbnails(comics, 120)
     return render_template('webtoon_list.html', comics=comics)
 
 
@@ -221,7 +221,7 @@ def bestchallenge_comics():
     logger = logging.getLogger(__name__ + '.bestchallenge_comics')
     url_format = BESTCHALLENGE_LIST_URL + '?page={0}'
     last_url = url_format.format(999999)
-    with navercomicfeed.urlfetch.fetch(last_url, cache) as f:
+    with navercomicfeed.urlfetch.fetch(last_url, cache, 120) as f:
         html = lxml.html.parse(f)
     logger.info(last_url)
     last = html.xpath('//*[@id="content"]//*[contains(concat(" ", @class,'
@@ -232,7 +232,7 @@ def bestchallenge_comics():
         if page == last:
             return last_html
         url = url_format.format(page)
-        with navercomicfeed.urlfetch.fetch(url, cache) as f:
+        with navercomicfeed.urlfetch.fetch(url, cache, 120) as f:
             logger.info(url)
             html = lxml.html.parse(f)
         return html
@@ -251,7 +251,7 @@ def bestchallenge_comics():
 @app.route('/bestchallenge')
 def bestchallenge_list():
     comics = cached_comics('bestchallenge_list', bestchallenge_comics())
-    comics = comics_with_thumbnails(comics)
+    comics = comics_with_thumbnails(comics, 120)
     return render_template('bestchallenge_list.html', comics=comics)
 
 
@@ -337,7 +337,7 @@ def image_proxy():
     if content_type and body:
         return Response(response=body, content_type=content_type)
     def fetch():
-        with navercomicfeed.urlfetch.fetch(url) as f:
+        with navercomicfeed.urlfetch.fetch(url, cache) as f:
             content_type = f.info()['Content-Type']
             yield content_type
             bytes = StringIO.StringIO()
