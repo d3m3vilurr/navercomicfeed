@@ -8,7 +8,10 @@ Currently, it implements a Redis backend only.
 
 """
 import itertools
-import json
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 import flask
 import flaskext.cache
 import werkzeug.contrib.cache
@@ -28,13 +31,25 @@ class RedisCache(werkzeug.contrib.cache.BaseCache):
 
     """
 
+    @staticmethod
+    def dumps(value):
+        if isinstance(value, (int, long, float)):
+            return str(value)
+        return '=' + pickle.dumps(value)
+
+    @staticmethod
+    def loads(value):
+        if value.startswith('='):
+            return pickle.loads(value[1:])
+        return eval(value)
+
     def __init__(self, redis_client, default_timeout=300):
         super(RedisCache, self).__init__(default_timeout=default_timeout)
         self.redis = redis_client
 
     def add(key, value, timeout=None):
         pipe = self.redis.pipeline()
-        value = json.dumps(value)
+        value = self.dumps(value)
         pipe.setnx(key, value).expire(key, timeout or self.default_timeout)
         pipe.execute()
 
@@ -52,25 +67,25 @@ class RedisCache(werkzeug.contrib.cache.BaseCache):
 
     def get(self, key):
         v = self.redis.get(key)
-        return v and json.loads(v)
+        return v and self.loads(v)
 
     def get_dict(self, *keys):
-        values = map(json.loads, self.redis.mget(keys))
+        values = map(self.loads, self.redis.mget(keys))
         return dict(itertools.izip(keys, values))
 
     def get_many(self, *keys):
-        return map(json.loads, self.redis.mget(keys))
+        return map(self.loads, self.redis.mget(keys))
 
     def inc(self, key, delta=1):
         self.redis.incr(key, amount=delta)
 
     def set(self, key, value, timeout=None):
         timeout = timeout or self.default_timeout
-        self.redis.setex(key, json.dumps(value), timeout)
+        self.redis.setex(key, self.dumps(value), timeout)
 
     def set_many(self, mapping, timeout=None):
         pipe = self.redis.pipeline()
-        mappding = dict((k, json.dumps(v)) for k, v in mapping.iteritems())
+        mappding = dict((k, self.dumps(v)) for k, v in mapping.iteritems())
         pipe.mset(mapping).expire(key, timeout or self.default_timeout)
         pipe.execute()
 
