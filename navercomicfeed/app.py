@@ -371,6 +371,30 @@ def admin_clear_cache():
     return 'Cached data cannot be cleared.'
 
 
+@app.route('/admin/urlfetch')
+@admin_only
+def admin_urlfetch():
+    try:
+        cache_timeout = int(request.values['cache_timeout'])
+    except (KeyError, TypeError):
+        cache_timeout = None
+    try:
+        url = request.values['url']
+    except KeyError:
+        response = None
+        encoding = None
+    else:
+        response = navercomicfeed.urlfetch.fetch(url, cache, cache_timeout)
+        type = response.headers['Content-Type']
+        encoding = re.search(r';\s*charset\s*=\s*([-a-z0-9_.]+)', type, re.I)
+        encoding = encoding and encoding.group(1)
+    with response:
+        return render_template('admin/urlfetch.html',
+                               response=response,
+                               encoding=encoding,
+                               cache_timeout=cache_timeout)
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     app.run(debug=True)

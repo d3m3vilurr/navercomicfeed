@@ -1,0 +1,22 @@
+<form action="{{ url_for('admin_urlfetch') }}" method="get">
+  <div><label>URL
+              <input type="url" name="url"
+                     value="{{ response and response.url or '' }}"
+                     /></label></div>
+  <div><label>Cache Timeout
+              <input type="number" name="cache_timeout" size="4"
+                     min="0" step="1" value="{{ cache_timeout or '' }}" />
+              second(s)</label></div>
+  <button type="submit">Fetch</button>
+</form>
+
+{% if response %}
+  <pre>HTTP/1.1 {{ response.code }} {{ response.msg }}<br />
+       {%- for header, value in response.headers.items() -%}
+         {{- header|title }}: {{ value }}<br />
+       {%- endfor -%}
+       <br />
+       {%- for line in response -%}
+         {{- line.decode(encoding or 'utf-8') -}}
+       {%- endfor %}</pre>
+{% endif %}

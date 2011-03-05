@@ -54,6 +54,9 @@ class BaseResponse(object):
     def headers(self):
         return self.info()
 
+    def __iter__(self):
+        return self
+
     def next(self):
         line = self.readline()
         if line:
@@ -173,7 +176,10 @@ class CachedResponse(BaseResponse):
 
     def readline(self):
         body = self.cache_data[3]
-        offset = body.index('\n', self.offset) + 1
+        try:
+            offset = body.index('\n', self.offset) + 1
+        except ValueError:
+            offset = len(body)
         line = body[self.offset:offset]
         self.offset = offset
         return line
