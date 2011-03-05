@@ -213,7 +213,7 @@ def webtoon_comics():
 @app.route('/webtoon')
 def webtoon_list():
     comics = cached_comics('webtoon_list', webtoon_comics())
-    comics = comics_with_thumbnails(comics, 120)
+    comics = comics_with_thumbnails(comics)
     return render_template('webtoon_list.html', comics=comics)
 
 
@@ -251,7 +251,7 @@ def bestchallenge_comics():
 @app.route('/bestchallenge')
 def bestchallenge_list():
     comics = cached_comics('bestchallenge_list', bestchallenge_comics())
-    comics = comics_with_thumbnails(comics, 120)
+    comics = comics_with_thumbnails(comics)
     return render_template('bestchallenge_list.html', comics=comics)
 
 
