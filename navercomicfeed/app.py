@@ -192,7 +192,7 @@ def cached_comics(cache_key, comics):
         ids = set()
         for title_id, title in comics:
             if title_id not in ids:
-                result.append((title_id, title))
+                result.append((title_id, unicode(title)))
                 ids.add(title_id)
         result.sort(key=lambda (_, title): title)
         cache.set(cache_key, result)
