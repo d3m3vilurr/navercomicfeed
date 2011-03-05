@@ -35,7 +35,6 @@ import contextlib
 import hmac
 import hashlib
 import urlparse
-import urllib2
 import logging
 try:
     import cStringIO as StringIO
@@ -48,6 +47,7 @@ import werkzeug.urls
 import sqlalchemy
 from navercomicfeed.comic import *
 import navercomicfeed.pool
+import navercomicfeed.urlfetch
 
 
 WEBTOON_LIST_URL = 'http://comic.naver.com/webtoon/creation.nhn?view=list'
@@ -159,7 +159,7 @@ def get_title_thumbnail_url(title_id, pair=False, default=None):
     if default is not None:
         return default
     url = URL_TYPES['webtoon'].format(title_id)
-    with contextlib.closing(urllib2.urlopen(url)) as f:
+    with navercomicfeed.urlfetch.fetch(url, cache) as f:
         html = f.read()
         logger.info('downloaded title %d from %s', title_id, url)
         m = re.search(r'<div class="thumb">(.+?)</div>', html)
@@ -221,7 +221,8 @@ def bestchallenge_comics():
     logger = logging.getLogger(__name__ + '.bestchallenge_comics')
     url_format = BESTCHALLENGE_LIST_URL + '?page={0}'
     last_url = url_format.format(999999)
-    html = lxml.html.parse(last_url)
+    with navercomicfeed.urlfetch.fetch(last_url, cache) as f:
+        html = lxml.html.parse(f)
     logger.info(last_url)
     last = html.xpath('//*[@id="content"]//*[contains(concat(" ", @class,'
                       '" "), " pagenavigation ")]/*[@class="current"]/text()')
@@ -231,10 +232,9 @@ def bestchallenge_comics():
         if page == last:
             return last_html
         url = url_format.format(page)
-        f = urllib2.urlopen(url)
-        logger.info(url)
-        html = lxml.html.parse(f)
-        f.close()
+        with navercomicfeed.urlfetch.fetch(url, cache) as f:
+            logger.info(url)
+            html = lxml.html.parse(f)
         return html
     pool = navercomicfeed.pool.Pool(10)
     htmls = pool.map(get_html, xrange(1, last + 1))
@@ -337,7 +337,7 @@ def image_proxy():
     if content_type and body:
         return Response(response=body, content_type=content_type)
     def fetch():
-        with contextlib.closing(urllib2.urlopen(url)) as f:
+        with navercomicfeed.urlfetch.fetch(url) as f:
             content_type = f.info()['Content-Type']
             yield content_type
             bytes = StringIO.StringIO()
