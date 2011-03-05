@@ -211,7 +211,9 @@ class Title(object):
                         '%a %b %d %H:%M:%S %Z %Y'
                     )
                 except ValueError:
-                    published = map(int, re.split(r'\D+', published.strip()))
+                    published = [int(d)
+                                 for d in re.split(r'\D+', published.strip())
+                                 if re.match(r'^\d+$', d)]
                     published = (published + (0,) * 6 - len(published))[:6]
                     published = datetime.datetime(*published)
                     published = pytz.utc.localize(published)
