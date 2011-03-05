@@ -207,7 +207,7 @@ class Title(object):
                 published = COMIC_PUBLISHED_AT_XPATH(tr)[0]
                 try:
                     published = datetime.datetime.strptime(
-                        published,
+                        published.strip(),
                         '%a %b %d %H:%M:%S %Z %Y'
                     )
                 except ValueError:
