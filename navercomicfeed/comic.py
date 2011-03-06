@@ -112,14 +112,15 @@ class Title(object):
 
     """
 
-    __slots__ = ('url', 'session', 'offset', 'limit', '_title', '_description',
-                 '_artists', '_list_html', '_list_page')
+    __slots__ = ('url', 'session', 'offset', 'limit', 'cache', '_title',
+                 '_description', '_artists', '_list_html', '_list_page')
 
-    def __init__(self, url, session, offset=0, limit=None):
+    def __init__(self, url, session, offset=0, limit=None, cache=None):
         self.url = url
         self.session = session
         self.offset = offset
         self.limit = limit
+        self.cache = None
 
     def _get_list_html(self, page=None, pair=False):
         logger = self.get_logger('_get_list_html')
@@ -127,7 +128,7 @@ class Title(object):
         params = self.url, ('&' if '?' in self.url else '?'), p
         url = '{0}{1}page={2}'.format(*params)
         if not hasattr(self, '_list_html') or page and self._list_page != page:
-            with navercomicfeed.urlfetch.fetch(url) as f:
+            with navercomicfeed.urlfetch.fetch(url, self.cache) as f:
                 logger.info('url fetched: %s', url)
                 self._list_html = lxml.html.parse(f)
             self._list_page = page
@@ -186,7 +187,8 @@ class Title(object):
 
     def _crawl_comic(self, (no, title, published, comic_url)):
         logger = self.get_logger('_crawl_comic')
-        with navercomicfeed.urlfetch.fetch(comic_url) as f:
+        expire = 3600 * 24
+        with navercomicfeed.urlfetch.fetch(comic_url, self.cache, expire) as f:
             logger.info('url fetched: %s', comic_url)
             comic_html = lxml.html.parse(f)
         self._fetch_artists(comic_html)
@@ -293,7 +295,9 @@ class Title(object):
             if index.step is not None:
                 raise TypeError('slicing step is not supported')
             limit = index.stop - index.start if index.start else index.stop
-            sliced = Title(self.url, self.session, index.start or 0, limit)
+            sliced = Title(self.url, self.session,
+                           index.start or 0, limit,
+                           self.cache)
             for attr in self.__slots__:
                 if attr.startswith('_') and hasattr(self, attr):
                     setattr(sliced, attr, getattr(self, attr))
