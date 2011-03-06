@@ -207,8 +207,8 @@ class Title(object):
                 published = COMIC_PUBLISHED_AT_XPATH(tr)[0]
                 try:
                     published = datetime.datetime.strptime(
-                        published.strip(),
-                        '%a %b %d %H:%M:%S %Z %Y'
+                        re.sub(r'[A-Z]{3} (\d{4})$', r'\1', published.strip()),
+                        '%a %b %d %H:%M:%S %Y'
                     )
                 except ValueError:
                     publisehd = re.split(r'\D+', published.strip())
