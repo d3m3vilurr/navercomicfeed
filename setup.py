@@ -11,6 +11,7 @@ setup(name='NaverComicFeed',
       author_email='minhee' '@' 'dahlia.kr',
       packages=['navercomicfeed'],
       package_dir={'navercomicfeed': 'navercomicfeed'},
-      install_requires=['lxml', 'SQLAlchemy', 'pytz', 'Flask', 'Flask-Cache'],
+      install_requires=['lxml', 'SQLAlchemy', 'futureutils', 'pytz',
+                        'Flask', 'Flask-Cache'],
       license='LGPL v3')
 

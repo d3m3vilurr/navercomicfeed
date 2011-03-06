@@ -29,6 +29,8 @@ class Pool(object):
     def __init__(self, workers):
         if not isinstance(workers, (int, long)):
             raise TypeError('workers must be an integer, not ' + repr(workers))
+        elif workers < 1:
+            raise ValueError('workers cannot be zero')
         self.workers = workers
 
     def map(self, function, *iterables):
@@ -42,6 +44,10 @@ class Pool(object):
         :rtype: iterable object
 
         """
+        if self.workers <= 1:
+            for v in itertools.imap(function, *iterables):
+                yield v
+            return
         iterable = enumerate(itertools.izip_longest(*iterables))
         map_func = lambda (i, args): (i, function(*args))
         result = self.map_unordered(map_func, iterable)
@@ -60,6 +66,8 @@ class Pool(object):
         :rtype: :class:`list`
 
         """
+        if self.workers <= 1:
+            return map(function, *iterables)
         workers = []
         cond = threading.Condition()
         result = []

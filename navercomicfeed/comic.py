@@ -35,9 +35,8 @@ This module implements the crawler and RDMBS-powered cache for it.
 """
 import re
 import collections
-import threading
+import logging
 import urlparse
-import urllib2
 import datetime
 import pytz
 import lxml.etree
@@ -46,6 +45,9 @@ import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.ext.declarative
 import sqlalchemy.sql.functions
+import futureutils
+import navercomicfeed.urlfetch
+import navercomicfeed.pool
 
 
 POOL_SIZE = 20
@@ -120,12 +122,17 @@ class Title(object):
         self.limit = limit
 
     def _get_list_html(self, page=None, pair=False):
+        logger = self.get_logger('_get_list_html')
         p = page or 1
         params = self.url, ('&' if '?' in self.url else '?'), p
         url = '{0}{1}page={2}'.format(*params)
         if not hasattr(self, '_list_html') or page and self._list_page != page:
-            self._list_html = lxml.html.parse(url)
+            with navercomicfeed.urlfetch.fetch(url) as f:
+                logger.info('url fetched: %s', url)
+                self._list_html = lxml.html.parse(f)
             self._list_page = page
+        else:
+            logger.info('cache hit: %s', url)
         if pair:
             return self._list_html, url
         return self._list_html
@@ -144,7 +151,17 @@ class Title(object):
             self._title = TITLE_XPATH(self._get_list_html())[0]
         return self._title
 
-    def _fetch_artists(self, html):
+    def get_logger(self, name=None):
+        cls = type(self)
+        names = [cls.__module__, cls.__name__]
+        if name:
+            names.append(name)
+        return logging.getLogger('.'.join(names))
+
+    def _fetch_artists(self, html, ignore_cache=False):
+        if not ignore_cache and hasattr(self, '_artists') and self._artists:
+            return
+        logger = self.get_logger('_fetch_artists')
         script = html.xpath('//script[contains(text(), "artistData")]'
                             '/text()')
         for s in script:
@@ -156,6 +173,7 @@ class Title(object):
                                     m.group('url') or None)
                              for m in ARTIST_PATTERN.finditer(lst)]
             if self._artists:
+                logger.info('fetched artist list (%d)', len(self._artists))
                 break
 
     @property
@@ -166,83 +184,72 @@ class Title(object):
             self._fetch_artists(self._get_list_html())
         return self._artists
 
-    def _crawl_comic(self, lock, cond_pool_buffer, resultset, no, title,
-                     published, comic_url):
-        f = urllib2.urlopen(comic_url)
-        comic_html = lxml.html.parse(f)
-        f.close()
-        if len(resultset) < 1:
-            self._fetch_artists(comic_html)
+    def _crawl_comic(self, (no, title, published, comic_url)):
+        logger = self.get_logger('_crawl_comic')
+        with navercomicfeed.urlfetch.fetch(comic_url) as f:
+            logger.info('url fetched: %s', comic_url)
+            comic_html = lxml.html.parse(f)
+        self._fetch_artists(comic_html)
         image_urls = COMIC_IMAGE_URLS_XPATH(comic_html)
         description = u"\n\n".join(COMIC_DESCRIPTION_XPATH(comic_html))
         comic = Comic(comic_url, no, title, image_urls,
                       description, published)
-        if lock is None:
-            resultset.append(comic)
-        else:
-            with lock:
-                resultset.append(comic)
-        if cond_pool_buffer is not None:
-            with cond_pool_buffer:
-                cond_pool_buffer.notify()
+        logging.info(repr(comic))
+        return comic
 
-    def __iter__(self):
+    @futureutils.future_generator
+    def _crawl_list(self):
+        logger = self.get_logger('_crawl_list')
         max = sqlalchemy.sql.functions.max
         max_no, = self.session.query(max(StoredComic.no)) \
                               .filter_by(title_url=self.url) \
                               .first()
+        logger.info('max_no: %r', max_no)
         page = 1
-        no_re = re.compile(r'[?&]no=(\d+)(&|$)')
         stopped = False
-        crawled_comics = []
-        lock = threading.Lock()
-        cond_pool_buffer = threading.Condition()
-        workers = []
+        no_re = re.compile(r'[?&]no=(\d+)(&|$)')
+        crawled_numbers = set()
         while True:
             html, title_url = self._get_list_html(page, pair=True)
             for tr in COMIC_XPATH(html):
                 title = COMIC_TITLE_XPATH(tr)[0].strip()
                 href = COMIC_URL_XPATH(tr)[0]
+                href = urlparse.urljoin(title_url, href)
                 no = int(no_re.search(href).group(1))
                 published = COMIC_PUBLISHED_AT_XPATH(tr)[0]
                 try:
                     published = datetime.datetime.strptime(
-                        re.sub(r'[A-Z]{3} (\d{4})$', r'\1', published.strip()),
+                        re.sub(r'[A-Z]{3} (\d{4})$', r'\1',
+                               published.strip()),
                         '%a %b %d %H:%M:%S %Y'
                     )
                 except ValueError:
                     publisehd = re.split(r'\D+', published.strip())
                     published = tuple(int(d) for d in published
                                              if re.match(r'^\d+$', d))
-                    published = (published + (0,) * (6 - len(published)))[:6]
+                    missing_fields = 6 - len(published)
+                    published = (published + (0,) * missing_fields)[:6]
                     published = datetime.datetime(*published)
                     published = pytz.utc.localize(published)
                 else:
                     published = TZINFO.localize(published)
-                if no == max_no or any(c.no == no for c in crawled_comics):
+                if no == max_no or no in crawled_numbers:
                     stopped = True
                     break
-                comic_url = urlparse.urljoin(title_url, href)
-                if POOL_SIZE < 2:
-                    self._crawl_comic(None, None, crawled_comics, no, title,
-                                      published, comic_url)
-                else:
-                    if sum(1 for w in workers if w.is_alive()) >= POOL_SIZE:
-                        with cond_pool_buffer:
-                            cond_pool_buffer.wait()
-                        workers = [w for w in workers if w.is_alive()]
-                    worker = threading.Thread(target=self._crawl_comic,
-                                              args=(lock, cond_pool_buffer,
-                                                    crawled_comics,
-                                                    no, title, published,
-                                                    comic_url))
-                    worker.start()
-                    workers.append(worker)
+                comic_tuple = no, title, published, href
+                logger.info(repr(comic_tuple))
+                yield comic_tuple
+                crawled_numbers.add(no)
             if stopped:
                 break
             page += 1
-        for worker in workers:
-            worker.join()
+
+    def __iter__(self):
+        pool = navercomicfeed.pool.Pool(POOL_SIZE)
+        crawled_comics = pool.map_unordered(self._crawl_comic,
+                                            self._crawl_list())
+        crawled_comics = frozenset(crawled_comics)
+        crawled_comics = sorted(crawled_comics, key=lambda c: c.no, reverse=1)
         try:
             start = self.offset
             stop = None if self.limit is None else start + self.limit
