@@ -6,13 +6,13 @@ a:hover { border-bottom-color: #456F74; }
 body { margin: 0 auto; padding: 0; width: 500px; background-color: #403D3C; }
 header, .body, footer { display: block; padding: 0.5em 1em;
                         background-color: white; }
-header { margin-bottom: 1em; padding: 1em; }
+header { padding: 1em; }
 header h1 { font-weight: normal; margin: 0; }
 header h1 a { color: #1C1919; border-bottom: none; }
 header h1 em { font-family: Helvetica, 'Helvetica Neue', Helvetica, sans-serif;
                font-weight: bold; font-style: normal; color: #EB5937; }
 header nav { margin-top: 1em; font-size: normal; }
-.body { margin-bottom: 1em; }
+.body { margin: 55px 0 1em 0; font-size: small; }
 footer { clear: left; margin-top: 1em; font-size: small; }
 
 .titles { float: left; clear: both; padding: 0; }
@@ -25,3 +25,13 @@ footer { clear: left; margin-top: 1em; font-size: small; }
 * html .titles .title a { width: 125px; height: 101px; }
 *+html .titles .title a { width: 125px; height: 101px; }
 .titles .title a:hover { background-color: rgba(0, 0, 0, 0.7); }
+.titles h2, legend { position: absolute; top: 125px; margin: 0; line-height: 0;
+                     text-shadow: black 1px 1px 1px; color: white;
+                     font-size: large; font-weight: normal; }
+
+form { margin: 0; padding: 0; }
+fieldset { border: none; }
+legend { margin-left: -25px; }
+form .error { color: maroon; }
+
+.home { margin-top: 1em; }

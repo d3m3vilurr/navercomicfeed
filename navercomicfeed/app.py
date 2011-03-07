@@ -132,7 +132,7 @@ def context_processor():
 
 @app.route('/')
 def home():
-    return ''
+    return render_template('home.html')
 
 
 def get_title_thumbnail_url(title_id, pair=False, default=None):
