@@ -72,6 +72,10 @@ COMIC_URL_XPATH = lxml.etree.XPath('.//td[@class="title"]/a/@href')
 COMIC_PUBLISHED_AT_XPATH = lxml.etree.XPath('.//td[@class="num"]/text()')
 COMIC_IMAGE_URLS_XPATH = lxml.etree.XPath('//*[@id="content"]'
                                           '//*[@class="wt_viewer"]/img/@src')
+COMIC_IMAGE_URLS_XPATH2 = lxml.etree.XPath('//*[@id="content"]'
+                                           '//*[@class="flip-cached_page"]'
+                                           '//img[@src="" and starts-with('
+                                           '@class, "real_url(")]')
 COMIC_DESCRIPTION_XPATH = lxml.etree.XPath('//*[@id="content"]'
                                            '//*[@class="writer_info"]/p/text()')
 
@@ -193,8 +197,20 @@ class Title(object):
             comic_html = lxml.html.parse(f)
         self._fetch_artists(comic_html)
         image_urls = COMIC_IMAGE_URLS_XPATH(comic_html)
+        if image_urls:
+            book = False
+        else:
+            book = True
+            logger.info('book-like comic')
+            images = COMIC_IMAGE_URLS_XPATH2(comic_html)
+            image_urls = []
+            class_re = re.compile(ur'real_url\((https?://.+?)\)')
+            for img in images:
+                m = class_re.match(img.attrib['class'])
+                if m:
+                    image_urls.append(m.group(1))
         description = u"\n\n".join(COMIC_DESCRIPTION_XPATH(comic_html))
-        comic = Comic(comic_url, no, title, image_urls,
+        comic = Comic(comic_url, no, title, book, image_urls,
                       description, published)
         logging.info(repr(comic))
         return comic
@@ -339,7 +355,28 @@ class Artist(collections.namedtuple('BaseArtist', 'id name url')):
         return unicode(self.name)
 
 
-class Comic(object):
+class BaseComic(object):
+    """Base mixin class for :class:`Comic` and :class:`StoredComic`."""
+
+    @property
+    def image_url_lines(self):
+        """The list of lists that contain image URLs by line."""
+        if self.book:
+            line = []
+            for url in self.image_urls:
+                line.append(url)
+                if len(line) >= 2:
+                    yield line
+                    line = []
+        else:
+            for url in self.image_urls:
+                yield [url]
+
+    def __unicode__(self):
+        return unicode(self.title)
+
+
+class Comic(BaseComic):
     """An each comic of series. Interchangeable with :class:`StoredComic`.
 
     :param url: the url of the comic
@@ -367,6 +404,10 @@ class Comic(object):
 
        The title of the comic, *not its series name*.
 
+    .. attribute:: book
+
+       Whether it is book-like.
+
     .. attribute:: image_urls
 
        The list of image URLs contain the comic.
@@ -381,10 +422,11 @@ class Comic(object):
 
     """
 
-    __slots__ = ('url', 'no', 'title', 'image_urls', 'description',
+    __slots__ = ('url', 'no', 'title', 'book', 'image_urls', 'description',
                  'published_at')
 
-    def __init__(self, url, no, title, image_urls, description, published_at):
+    def __init__(self, url, no, title, book, image_urls, description,
+                 published_at):
         l = locals()
         for attr in self.__slots__:
             setattr(self, attr, l[attr])
@@ -408,11 +450,8 @@ class Comic(object):
         attrs = dict((attr, getattr(self, attr)) for attr in self.__slots__)
         return StoredComic(**attrs)
 
-    def __unicode__(self):
-        return unicode(self.title)
 
-
-class StoredComic(Base):
+class StoredComic(Base, BaseComic):
     """Interchangeable, compatible, but persist version of :class:`Comic`
     object.
 
@@ -426,12 +465,10 @@ class StoredComic(Base):
     url = sqlalchemy.Column(sqlalchemy.String, unique=True)
     no = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     title = sqlalchemy.Column(sqlalchemy.Unicode, nullable=False)
+    book = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     image_urls = sqlalchemy.Column(sqlalchemy.PickleType, nullable=False)
     description = sqlalchemy.Column(sqlalchemy.UnicodeText, nullable=False)
     published_at = sqlalchemy.Column(sqlalchemy.DateTime(timezone=True),
                                      nullable=False)
     __tablename__ = 'comics'
-
-    def __unicode__(self):
-        return unicode(self.title)
 

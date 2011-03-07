@@ -43,11 +43,15 @@
       <content type="xhtml">
         <div xmlns="http://www.w3.org/1999/xhtml">
           <div class="images">
-            {% for img in comic.image_urls %}
-              <img src="{{ proxy_url_for(img) }}" alt="" />
-              {%- if not loop.last -%}
-                <br />
-              {%- endif -%}
+            {% for line in comic.image_url_lines %}
+              <div class="page" style="clear: left;">
+                {% for img in line %}
+                  <img src="{{ proxy_url_for(img) }}" alt=""
+                       {% if not loop.last %}
+                         style="float: left;"
+                       {% endif %} />
+                {% endfor %}
+              </div>
             {% endfor %}
           </div>
           <p>{{ comic.description }}</p>

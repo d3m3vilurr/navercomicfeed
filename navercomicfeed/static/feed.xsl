@@ -3,7 +3,8 @@
 <xsl:stylesheet version="1.0"
                 xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 xmlns:atom="http://www.w3.org/2005/Atom"
-                xmlns:dc="http://purl.org/dc/elements/1.1/">
+                xmlns:dc="http://purl.org/dc/elements/1.1/"
+                xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <xsl:output method="html" encoding="utf-8"/>
 	
   <xsl:template match="/">
@@ -55,15 +56,51 @@
         <a href="{atom:link/@href}"><xsl:value-of select="atom:title" /></a>
       </h2>
       <div class="images">
-        <xsl:apply-templates select="atom:link[contains(concat(' ', @rel, ' '),
-                                                        ' enclosure ')]" />
+        <xsl:apply-templates select="atom:content[@type='xhtml']/xhtml:*"
+                             mode="xhtml2html" />
       </div>
       <p><xsl:value-of select="atom:summary" /></p>
     </article>
   </xsl:template>
 
-  <xsl:template match="atom:link">
-    <div><img src="{@href}" alt="" /></div>
+  <xsl:template match="xhtml:img|xhtml:br" mode="xhtml2html"> 
+	<xsl:text disable-output-escaping="yes">&lt;</xsl:text><xsl:value-of
+      select="local-name(.)"
+    /><xsl:apply-templates select="@*" mode="xhtml2html"
+    /><xsl:text
+      disable-output-escaping="yes">&gt;</xsl:text><xsl:apply-templates
+      mode="xhtml2html" /> 
   </xsl:template>
+
+
+  <xsl:template match='xhtml:*' mode="xhtml2html">
+    <xsl:text disable-output-escaping="yes">&lt;</xsl:text><xsl:value-of
+      select="local-name(.)"
+    /><xsl:apply-templates select="@*" mode="xhtml2html"
+    /><xsl:text
+      disable-output-escaping="yes">&gt;</xsl:text><xsl:apply-templates
+      mode="xhtml2html"
+    /><xsl:text disable-output-escaping="yes">&lt;/</xsl:text><xsl:value-of
+      select="local-name(.)"
+    /><xsl:text disable-output-escaping="yes">&gt;</xsl:text>
+  </xsl:template> 
+
+  <xsl:template match='@*' mode="xhtml2html">
+    <xsl:text disable-output-escaping="yes"> </xsl:text><xsl:value-of
+      select="local-name(.)" disable-output-escaping="yes"
+    /><xsl:text disable-output-escaping="yes">=&quot;</xsl:text><xsl:value-of
+      select="." disable-output-escaping="yes" /><xsl:text
+      disable-output-escaping="yes">&quot;</xsl:text></xsl:template> 
+
+  <xsl:template match="text()" mode="xhtml2html"> 
+    <xsl:choose> 
+      <xsl:when test="contains(.,'&amp;') or contains(.,'&lt;')"> 
+        <xsl:value-of select="." disable-output-escaping="yes" /> 
+      </xsl:when> 
+      <xsl:otherwise> 
+        <xsl:value-of select="." disable-output-escaping="yes" /> 
+      </xsl:otherwise> 
+    </xsl:choose> 
+  </xsl:template> 
 </xsl:stylesheet>
 
