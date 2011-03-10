@@ -29,10 +29,12 @@ footer { clear: left; margin-top: 1em; font-size: small; }
                      text-shadow: black 1px 1px 1px; color: white;
                      font-size: large; font-weight: normal; }
 
-form { margin: 0; padding: 0; }
-fieldset { border: none; }
+form { margin: 0; padding: 0; text-align: center; }
+fieldset { border: none; text-align: center; }
 legend { margin-left: -25px; }
 form .error { color: maroon; }
+input { text-align: center; }
+button { display: block; margin: 1em auto; }
 
 .home { margin-top: 1em; }
 
