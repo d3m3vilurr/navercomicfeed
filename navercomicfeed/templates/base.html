@@ -9,9 +9,6 @@
     </title>
     <link rel="stylesheet" type="text/css" media="screen"
           href="{{ url_for('static', filename='style.css') }}" />
-    <script
-      src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js">
-    </script>
   </head>
   <body>
     <header>
@@ -36,6 +33,23 @@
          <a href="https://bitbucket.org/dahlia/navercomicfeed/issues/new">신고
          </a>해 주세요. / <a href="http://dahlia.kr/">홍민희</a></p>
     </footer>
+    <script>
+    // <![CDATA[
+    var url = {{ url_for('home', _external=True)|tojson|safe }};
+    var eurl = window.encodeURIComponent(url);
+    document.write('<iframe src="http://www.facebook.com/plugins/like.php' +
+                   '?href=' + eurl + '&amp;layout=box_count&amp;' +
+                   'show_faces=true&amp;width=50&amp;' +
+                   'action=like&amp;font&amp;colorscheme=light&amp;height=65"' +
+                   'scrolling="no" frameborder="0" allowTransparency="true" ' +
+                   'class="fb-like"></iframe>');
+    document.write('<a href="http://twitter.com/share" ' +
+                   'class="twitter-share-button" ' +
+                   'data-url="' + url + '" data-count="vertical" ' +
+                   'data-via="hongminhee" data-lang="ko">Tweet</a>');
+    // ]]>
+    </script>
+    <script src="http://platform.twitter.com/widgets.js"></script>
   </body>
 </html>
     

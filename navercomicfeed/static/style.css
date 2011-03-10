@@ -35,3 +35,8 @@ legend { margin-left: -25px; }
 form .error { color: maroon; }
 
 .home { margin-top: 1em; }
+
+.fb-like { border: none; overflow: hidden; width: 50px; height: 65px;
+           position: absolute; top: 11px; margin-left: 440px; }
+.twitter-share-button { position: absolute; top: 9px; margin-left: 377px; }
+
