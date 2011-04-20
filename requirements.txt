@@ -1,5 +1,6 @@
 lxml
 SQLAlchemy
+futureutils
 pytz
 Flask
 Flask-Cache
