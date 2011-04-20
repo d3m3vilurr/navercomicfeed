@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
 {% block title -%}
-  {{ super() }} &mdash; 베스트 도전
+  {{ super() }} &mdash; 웹툰
 {%- endblock %}
 {% block body_class %}
   titles
 {% endblock %}
 {% block body %}
   {{ super() }}
-  <h2>{% block h2 %}베스트 도전{% endblock %}</h2>
+  <h2>{% block h2 %}웹툰{% endblock %}</h2>
   <div class="titles">
     {% for title_id, title, thumb_url in comics %}
       <div class="title">
