@@ -40,13 +40,16 @@ def main(encoding=None):
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         if 'NAVERCOMICFEED_CONFIG' not in os.environ:
-            print>>sys.stderr, 'usage:', sys.argv[0], 'config'
+            print>>sys.stderr, 'usage:', sys.argv[0], 'config', '[encoding]'
             raise SystemExit
     else:
         navercomicfeed.app.app.config.from_pyfile(os.path.abspath(sys.argv[1]))
-    try:
-        _, encoding = os.environ.get('LANG', 'en_US.ascii').split('.', 1)
-    except ValueError:
-        encoding = 'utf-8'
+    if len(sys.argv) > 2:
+        encoding = sys.argv[2]
+    else:
+        try:
+            _, encoding = os.environ.get('LANG', 'en_US.ascii').split('.', 1)
+        except ValueError:
+            encoding = 'ascii'
     main(encoding=encoding)
 
