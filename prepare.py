@@ -47,6 +47,6 @@ if __name__ == '__main__':
     try:
         _, encoding = os.environ.get('LANG', 'en_US.ascii').split('.', 1)
     except ValueError:
-        encoding = 'ascii'
+        encoding = 'utf-8'
     main(encoding=encoding)
 
