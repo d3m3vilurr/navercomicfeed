@@ -265,7 +265,7 @@ def etc():
     if p.scheme in ('http', 'https') and p.hostname == 'comic.naver.com':
         m = re.match(r'^/(webtoon|bestChallenge|challenge)/', p.path)
         if m:
-            type = m.group(1)
+            type = m.group(1).lower()
             query = werkzeug.urls.url_decode(p.query)
             try:
                 title_id = query['titleId']
