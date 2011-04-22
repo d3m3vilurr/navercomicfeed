@@ -68,6 +68,9 @@ def main():
     parser.add_option('-B', '--no-bestchallenge', action='store_false',
                       dest='bestchallenge', default=True,
                       help="don't crawl webtoons")
+    parser.add_option('-w', '--workers', type='int',
+                      default=navercomicfeed.comic.POOL_SIZE,
+                      help='size of worker pool [%default]')
     options, args = parser.parse_args()
     if not options.config:
         if 'NAVERCOMICFEED_CONFIG' not in os.environ:
@@ -78,6 +81,7 @@ def main():
     if args and not (options.webtoon and options.bestchallenge):
         parser.error('-W/--no-webtoon and -B/--no-bestchallenge options are '
                      'meaningless for specific urls')
+    navercomicfeed.comic.POOL_SIZE = options.workers
     comic_list = []
     if options.webtoon:
         comic_list = comics('webtoon', navercomicfeed.app.webtoon_comics())

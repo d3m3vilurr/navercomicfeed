@@ -272,7 +272,8 @@ def etc():
             except KeyError:
                 pass
             else:
-                return redirect(url_for('feed', type=type, title_id=title_id))
+                url = url_for('feed', type=type, title_id=title_id, limit=15)
+                return redirect(url)
     return render_template('etc.html', url=url, error=True)
 
 
