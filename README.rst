@@ -28,6 +28,7 @@ Flask 프레임워크를 사용했으며, 의존하는 라이브러리의 목록
 라이브러리를 설치 가능합니다::
 
     $ pip install -r requirements.txt
+    $ python setup.py develop
 
 DBMS를 필요로 하는데, PostgreSQL_ 데이터베이스를 가정하고 만들어졌으나, 개발
 시에 SQLite_ 위에서도 제대로 동작하는 것을 확인했습니다. 아마 MySQL_ 위에서도
@@ -50,6 +51,11 @@ virtualenv_ 프로그램을 사용하세요.
 하나 만드세요. 몇가지 설정 항목이 있는데 적당히 설정해주세요. ``default.cfg``
 그대로 사용할 경우 SQLite로 데이터를 저장하고 데이터베이스 파일은 실행 위치에
 ``db.sqlite`` 파일명으로 저장됩니다.
+
+그 다음에는 데이터베이스에 테이블을 만들어야 합니다. 조금 복잡하지만
+다음 명령으로 생성 가능합니다: (설정 파일이 ``mynavercomic.cfg`` 라고 가정) ::
+
+    $ python prepare.py -WB -c mynavercomic.cfg
 
 
 실행
