@@ -71,6 +71,8 @@ def main():
     parser.add_option('-w', '--workers', type='int',
                       default=navercomicfeed.app.POOL_SIZE,
                       help='size of worker pool [%default]')
+    parser.add_option('-L', '--eager', action='store_true', default=False,
+                      help='eager webtoon list loading. default is lazy')
     options, args = parser.parse_args()
     if not options.config:
         if 'NAVERCOMICFEED_CONFIG' not in os.environ:
@@ -90,6 +92,8 @@ def main():
         lst = comics('bestchallenge',
                      navercomicfeed.app.bestchallenge_comics())
         comic_list = itertools.chain(comic_list, lst) if comic_list else lst
+    if options.eager:
+        comic_list = list(comic_list)
     if args:
         crawl_urls(args, encoding=options.encoding)
     else:
