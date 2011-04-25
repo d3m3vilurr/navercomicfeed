@@ -57,6 +57,7 @@ URL_TYPES = {
     'challenge': 'http://comic.naver.com/challenge/list.nhn?titleId={0}',
     'bestchallenge': 'http://comic.naver.com/bestChallenge/list.nhn?titleId={0}'
 }
+POOL_SIZE = 10
 
 
 app = Flask(__name__)
@@ -236,7 +237,7 @@ def bestchallenge_comics():
             logger.info(url)
             html = lxml.html.parse(f)
         return html
-    pool = navercomicfeed.pool.Pool(10)
+    pool = navercomicfeed.pool.Pool(POOL_SIZE)
     htmls = pool.map(get_html, xrange(1, last + 1))
     for html in htmls:
         links = html.xpath('//*[@id="content"]//table[@class="challengeList"]'
