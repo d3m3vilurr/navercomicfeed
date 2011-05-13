@@ -279,7 +279,9 @@ class Title(object):
                 count += 1
             stored_comics = self.session.query(StoredComic) \
                                         .filter_by(title_url=self.url) \
-                                        .order_by(StoredComic.no.desc())
+                                        .order_by(StoredComic.published_at
+                                                             .desc(),
+                                                  StoredComic.no.desc())
             step = 30 if self.limit is None else self.limit - count
             offset = 0
             while True:
