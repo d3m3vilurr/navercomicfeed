@@ -76,6 +76,7 @@ COMIC_IMAGE_URLS_XPATH2 = lxml.etree.XPath('//*[@id="content"]'
                                            '//*[@class="flip-cached_page"]'
                                            '//img[@src="" and starts-with('
                                            '@class, "real_url(")]')
+COMIC_IMAGE_URLS_JAVASCRIPT_PATTERN = re.compile('imageList = (?P<urls>\[.+\])')
 COMIC_DESCRIPTION_XPATH = lxml.etree.XPath('//*[@id="content"]'
                                            '//*[@class="writer_info"]/p/text()')
 
@@ -189,16 +190,25 @@ class Title(object):
             self._fetch_artists(self._get_list_html())
         return self._artists
 
+    def _fetch_comic_javascript(self, html_string):
+        matches = COMIC_IMAGE_URLS_JAVASCRIPT_PATTERN.search(html_string) \
+                                                     .groupdict().get('urls')
+        if matches:
+            return eval(matches)
+
     def _crawl_comic(self, (no, title, published, comic_url)):
         logger = self.get_logger('_crawl_comic')
         expire = 3600 * 24
         with navercomicfeed.urlfetch.fetch(comic_url, self.cache, expire) as f:
             logger.info('url fetched: %s', comic_url)
             comic_html = lxml.html.parse(f)
+            comic_html_string = lxml.html.tostring(comic_html)
         self._fetch_artists(comic_html)
         image_urls = COMIC_IMAGE_URLS_XPATH(comic_html)
         if image_urls:
             book = False
+            urls = self._fetch_comic_javascript(comic_html_string)
+            image_urls = urls or image_urls
         else:
             book = True
             logger.info('book-like comic')
