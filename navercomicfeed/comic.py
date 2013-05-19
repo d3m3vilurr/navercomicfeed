@@ -46,8 +46,8 @@ import sqlalchemy.orm
 import sqlalchemy.ext.declarative
 import sqlalchemy.sql.functions
 import futureutils
-import navercomicfeed.urlfetch
-import navercomicfeed.pool
+import urlfetch
+from pool import Pool
 
 
 POOL_SIZE = 20
@@ -133,7 +133,7 @@ class Title(object):
         params = self.url, ('&' if '?' in self.url else '?'), p
         url = '{0}{1}page={2}'.format(*params)
         if not hasattr(self, '_list_html') or page and self._list_page != page:
-            with navercomicfeed.urlfetch.fetch(url, self.cache) as f:
+            with urlfetch.fetch(url, self.cache) as f:
                 logger.info('url fetched: %s', url)
                 self._list_html = lxml.html.parse(f)
             self._list_page = page
@@ -191,15 +191,15 @@ class Title(object):
         return self._artists
 
     def _fetch_comic_javascript(self, html_string):
-        matches = COMIC_IMAGE_URLS_JAVASCRIPT_PATTERN.search(html_string) \
-                                                     .groupdict().get('urls')
+        matches = COMIC_IMAGE_URLS_JAVASCRIPT_PATTERN.search(html_string)
         if matches:
-            return eval(matches)
+            matches = matches.groupdict().get('urls')
+            return eval(matches.groupdict().get('urls'))
 
     def _crawl_comic(self, (no, title, published, comic_url)):
         logger = self.get_logger('_crawl_comic')
         expire = 3600 * 24
-        with navercomicfeed.urlfetch.fetch(comic_url, self.cache, expire) as f:
+        with urlfetch.fetch(comic_url, self.cache, expire) as f:
             logger.info('url fetched: %s', comic_url)
             comic_html = lxml.html.parse(f)
             comic_html_string = lxml.html.tostring(comic_html)
@@ -273,7 +273,7 @@ class Title(object):
             page += 1
 
     def __iter__(self):
-        pool = navercomicfeed.pool.Pool(POOL_SIZE)
+        pool = Pool(POOL_SIZE)
         crawled_comics = pool.map_unordered(self._crawl_comic,
                                             self._crawl_list())
         crawled_comics = frozenset(crawled_comics)

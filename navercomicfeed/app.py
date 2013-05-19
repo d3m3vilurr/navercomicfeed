@@ -45,9 +45,9 @@ from flask.ext.cache import Cache
 import lxml.html
 import werkzeug.urls
 import sqlalchemy
-from navercomicfeed.comic import *
-import navercomicfeed.pool
-import navercomicfeed.urlfetch
+from comic import *
+from pool import Pool
+import urlfetch
 
 
 WEBTOON_LIST_URL = 'http://comic.naver.com/webtoon/creation.nhn?view=list'
@@ -160,7 +160,7 @@ def get_title_thumbnail_url(title_id, pair=False, default=None):
     if default is not None:
         return default
     url = URL_TYPES['webtoon'].format(title_id)
-    with navercomicfeed.urlfetch.fetch(url, cache, 120) as f:
+    with urlfetch.fetch(url, cache, 120) as f:
         html = f.read()
         logger.info('downloaded title %d from %s', title_id, url)
         m = re.search(r'<div class="thumb">(.+?)</div>', html)
@@ -222,7 +222,7 @@ def bestchallenge_comics():
     logger = logging.getLogger(__name__ + '.bestchallenge_comics')
     url_format = BESTCHALLENGE_LIST_URL + '?page={0}'
     last_url = url_format.format(999999)
-    with navercomicfeed.urlfetch.fetch(last_url, cache, 120) as f:
+    with urlfetch.fetch(last_url, cache, 120) as f:
         html = lxml.html.parse(f)
     logger.info(last_url)
     last = html.xpath('//*[@id="content"]//*[contains(concat(" ", @class,'
@@ -233,11 +233,11 @@ def bestchallenge_comics():
         if page == last:
             return last_html
         url = url_format.format(page)
-        with navercomicfeed.urlfetch.fetch(url, cache, 120) as f:
+        with urlfetch.fetch(url, cache, 120) as f:
             logger.info(url)
             html = lxml.html.parse(f)
         return html
-    pool = navercomicfeed.pool.Pool(POOL_SIZE)
+    pool = Pool(POOL_SIZE)
     htmls = pool.map(get_html, xrange(1, last + 1))
     for html in htmls:
         links = html.xpath('//*[@id="content"]//table[@class="challengeList"]'
@@ -307,7 +307,7 @@ def proxy_url_for(url, ignore_relative_path=True):
 
 
 @app.route('/<any(webtoon,bestchallenge,challenge):type>/<int:title_id>.xml')
-@cache.cached(timeout=120)
+#@cache.cached(timeout=120)
 def feed(type, title_id):
     session = Session()
     url = URL_TYPES[type].format(title_id)
@@ -339,7 +339,7 @@ def image_proxy():
     if content_type and body:
         return Response(response=body, content_type=content_type)
     def fetch():
-        with navercomicfeed.urlfetch.fetch(url, cache) as f:
+        with urlfetch.fetch(url, cache) as f:
             content_type = f.info()['Content-Type']
             yield content_type
             bytes = StringIO.StringIO()
@@ -386,7 +386,7 @@ def admin_urlfetch():
         response = None
         encoding = None
     else:
-        response = navercomicfeed.urlfetch.fetch(url, cache, cache_timeout)
+        response = urlfetch.fetch(url, cache, cache_timeout)
         type = response.headers['Content-Type']
         encoding = re.search(r';\s*charset\s*=\s*([-a-z0-9_.]+)', type, re.I)
         encoding = encoding and encoding.group(1)
