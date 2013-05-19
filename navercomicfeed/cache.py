@@ -2,7 +2,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It implements custom cache backends powered by :mod:`werkzeug.contrib.cache`
-and :mod:`flaskext.cache`.
+and :mod:`flask.ext.cache`.
 
 Currently, it implements a Redis backend only.
 
@@ -13,7 +13,7 @@ try:
 except ImportError:
     import pickle
 import flask
-import flaskext.cache
+import flask.ext.cache
 import werkzeug.contrib.cache
 
 

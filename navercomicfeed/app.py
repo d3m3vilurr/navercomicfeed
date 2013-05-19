@@ -41,7 +41,7 @@ try:
 except ImportError:
     import StringIO
 from flask import *
-from flaskext.cache import Cache
+from flask.ext.cache import Cache
 import lxml.html
 import werkzeug.urls
 import sqlalchemy
