@@ -147,14 +147,14 @@ class Title(object):
     def title(self):
         """The title string."""
         if not hasattr(self, '_title'):
-            self._title = TITLE_XPATH(self._get_list_html())[0]
+            self._title = TITLE_XPATH(self._get_list_html())[0].strip()
         return self._title
 
     @property
     def description(self):
         """The description string."""
         if not hasattr(self, '_description'):
-            self._title = TITLE_XPATH(self._get_list_html())[0]
+            self._title = TITLE_XPATH(self._get_list_html())[0].strip()
         return self._title
 
     def get_logger(self, name=None):
