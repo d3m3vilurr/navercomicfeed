@@ -307,7 +307,7 @@ def proxy_url_for(url, ignore_relative_path=True):
 
 
 @app.route('/<any(webtoon,bestchallenge,challenge):type>/<int:title_id>.xml')
-#@cache.cached(timeout=120)
+@cache.cached(timeout=120)
 def feed(type, title_id):
     session = Session()
     url = URL_TYPES[type].format(title_id)
