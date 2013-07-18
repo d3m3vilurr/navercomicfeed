@@ -252,7 +252,7 @@ class Title(object):
                         '%a %b %d %H:%M:%S %Y'
                     )
                 except ValueError:
-                    publisehd = re.split(r'\D+', published.strip())
+                    published = re.split(r'\D+', published.strip())
                     published = tuple(int(d) for d in published
                                              if re.match(r'^\d+$', d))
                     missing_fields = 6 - len(published)
