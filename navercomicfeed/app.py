@@ -339,7 +339,8 @@ def image_proxy():
     if content_type and body:
         return Response(response=body, content_type=content_type)
     def fetch():
-        with urlfetch.fetch(url, cache) as f:
+        naver_comic_url = 'http://comic.naver.com'
+        with urlfetch.fetch(url, cache, referer=naver_comic_url) as f:
             content_type = f.info()['Content-Type']
             yield content_type
             bytes = StringIO.StringIO()

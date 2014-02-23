@@ -8,7 +8,7 @@ import urllib2
 import hashlib
 
 
-def fetch(url, cache=None, cache_timeout=None):
+def fetch(url, cache=None, cache_timeout=None, referer=None):
     """"Fetches the ``url`` then returns its response.
 
     :param url: an url to request
@@ -16,6 +16,8 @@ def fetch(url, cache=None, cache_timeout=None):
     :param cache: an optional cache object
     :type cache: :class:`werkzeug.contrib.cache.BaseCache`
     :param cache_timeout: an optional timeout of cache
+    :param referer: an referer url of request
+    :type url: :class:`basestring`
     :returns: the response
     :rtype: :class:`BaseResponse`
 
@@ -25,7 +27,10 @@ def fetch(url, cache=None, cache_timeout=None):
         cached = cache.get(cache_key)
         if cached:
             return CachedResponse(url, cached)
-    f = urllib2.urlopen(url)
+    req = urllib2.Request(url)
+    if referer:
+        req.add_header('Referer', referer)
+    f = urllib2.urlopen(req)
     return WrappedResponse(f, cache, cache_key, cache_timeout)
 
 
