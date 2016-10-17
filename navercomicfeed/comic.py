@@ -454,7 +454,7 @@ class Comic(BaseComic):
         """
         comic = self.stored_comic
         comic.title_url = title_url
-        session.add(comic)
+        comic = session.merge(comic)
 
     @property
     def stored_comic(self):
