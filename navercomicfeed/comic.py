@@ -55,7 +55,7 @@ TZINFO = pytz.timezone('Asia/Seoul')
 TITLE_XPATH = lxml.etree.XPath('//*[@class="comicinfo"]//h2/text()')
 DESCRIPTION_XPATH = lxml.etree.XPath('//*[@class="comicinfo"]'
                                      '/*[@class="detail"]/p/text()')
-ARTIST_URL_FORMAT = 'http://comic.naver.com/artistTitle.nhn?artistId={0.id}'
+ARTIST_URL_FORMAT = 'https://comic.naver.com/artistTitle.nhn?artistId={0.id}'
 ARTIST_LIST_PATTERN = re.compile(ur'''
     var \s* artistData \s* = \s* \[ \s* ( .+? ) \s* \] \s* ; \s* var
 ''', re.VERBOSE | re.DOTALL)

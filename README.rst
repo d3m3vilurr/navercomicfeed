@@ -13,7 +13,7 @@ http://navercomicfeed.ep.io/
 
 https://bitbucket.org/dahlia/navercomicfeed
 
-.. _네이버 만화: http://comic.naver.com/
+.. _네이버 만화: https://comic.naver.com/
 .. _AGPL: http://www.gnu.org/licenses/agpl.html
 
 

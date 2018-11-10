@@ -50,12 +50,12 @@ from pool import Pool
 import urlfetch
 
 
-WEBTOON_LIST_URL = 'http://comic.naver.com/webtoon/creation.nhn?view=list'
-BESTCHALLENGE_LIST_URL = 'http://comic.naver.com/genre/bestChallenge.nhn'
+WEBTOON_LIST_URL = 'https://comic.naver.com/webtoon/creation.nhn?view=list'
+BESTCHALLENGE_LIST_URL = 'https://comic.naver.com/genre/bestChallenge.nhn'
 URL_TYPES = {
-    'webtoon': 'http://comic.naver.com/webtoon/list.nhn?titleId={0}',
-    'challenge': 'http://comic.naver.com/challenge/list.nhn?titleId={0}',
-    'bestchallenge': 'http://comic.naver.com/bestChallenge/list.nhn?titleId={0}'
+    'webtoon': 'https://comic.naver.com/webtoon/list.nhn?titleId={0}',
+    'challenge': 'https://comic.naver.com/challenge/list.nhn?titleId={0}',
+    'bestchallenge': 'https://comic.naver.com/bestChallenge/list.nhn?titleId={0}'
 }
 POOL_SIZE = 10
 
@@ -339,7 +339,7 @@ def image_proxy():
     if content_type and body:
         return Response(response=body, content_type=content_type)
     def fetch():
-        naver_comic_url = 'http://comic.naver.com'
+        naver_comic_url = 'https://comic.naver.com'
         with urlfetch.fetch(url, cache, referer=naver_comic_url) as f:
             content_type = f.info()['Content-Type']
             yield content_type
