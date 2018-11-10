@@ -161,12 +161,10 @@ def get_title_thumbnail_url(title_id, pair=False, default=None):
         return default
     url = URL_TYPES['webtoon'].format(title_id)
     with urlfetch.fetch(url, cache, 120) as f:
-        html = f.read()
         logger.info('downloaded title %d from %s', title_id, url)
-        m = re.search(r'<div class="thumb">(.+?)</div>', html)
-        html = m.group(1)
-        m = re.search(r'src="(https?://.+?)"', html)
-        img_src = m.group(1)
+        html = lxml.html.parse(f)
+        img = html.xpath('//div[@class="thumb"]//img/@src')
+        img_src = unicode(img[0])
         cache.set(cache_key, img_src)
         return (title_id, img_src) if pair else img_src
 
