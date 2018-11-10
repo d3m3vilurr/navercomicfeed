@@ -201,7 +201,8 @@ def cached_comics(cache_key, comics):
 
 
 def webtoon_comics():
-    html = lxml.html.parse(WEBTOON_LIST_URL)
+    with urlfetch.fetch(WEBTOON_LIST_URL, cache, 120) as f:
+        html = lxml.html.parse(f)
     links = html.xpath('//*[@id="content"]//*[@class="section"]/ul/li/a')
     for a in links:
         title = a.attrib['title']
@@ -226,7 +227,7 @@ def bestchallenge_comics():
         html = lxml.html.parse(f)
     logger.info(last_url)
     last = html.xpath('//*[@id="content"]//*[contains(concat(" ", @class,'
-                      '" "), " pagenavigation ")]/*[@class="current"]/text()')
+                      '" "), " paginate ")]//strong[@class="page"]/em/text()')
     last_html = html
     last = int(last[0])
     def get_html(page):
