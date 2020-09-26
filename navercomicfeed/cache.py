@@ -90,7 +90,7 @@ class RedisCache(werkzeug.contrib.cache.BaseCache):
         pipe.execute()
 
 
-def redis(app, args, kwargs):
+def redis(app, config, args, kwargs):
     """A Redis backend for Flask-Cache. Set ``CACHE_TYPE`` to
     ``'styleshare.cache.redis'`` in your Flask configuration.
 
