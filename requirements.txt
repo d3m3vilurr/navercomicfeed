@@ -1,6 +1,6 @@
 lxml
 SQLAlchemy
 pytz
-Flask==0.12
+Flask==1.0
 Flask-Cache
 Werkzeug==0.16
