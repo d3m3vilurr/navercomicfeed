@@ -81,7 +81,7 @@ class RedisCache(werkzeug.contrib.cache.BaseCache):
 
     def set(self, key, value, timeout=None):
         timeout = timeout or self.default_timeout
-        self.redis.setex(key, self.dumps(value), timeout)
+        self.redis.setex(key, timeout, self.dumps(value))
 
     def set_many(self, mapping, timeout=None):
         pipe = self.redis.pipeline()
