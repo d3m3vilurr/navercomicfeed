@@ -399,5 +399,7 @@ def admin_urlfetch():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    app.run(debug=True)
+    host = os.environ.get('NAVERCOMICFEED_HOST', '127.0.0.1')
+    port = int(os.environ.get('NAVERCOMICFEED_PORT', 5000))
+    app.run(debug=True, host=host, port=port)
 
