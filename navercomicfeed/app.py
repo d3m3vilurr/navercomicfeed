@@ -52,7 +52,7 @@ import urlfetch
 
 
 WEBTOON_LIST_URL = 'https://comic.naver.com/api/webtoon/titlelist/weekday'
-BESTCHALLENGE_LIST_URL = 'https://comic.naver.com/genre/bestChallenge.nhn'
+BESTCHALLENGE_LIST_URL = 'https://comic.naver.com/api/bestChallenge/list'
 URL_TYPES = {
     'webtoon': 'https://comic.naver.com/webtoon/list.nhn?titleId={0}',
     'challenge': 'https://comic.naver.com/challenge/list.nhn?titleId={0}',
@@ -221,30 +221,22 @@ def bestchallenge_comics():
     url_format = BESTCHALLENGE_LIST_URL + '?page={0}'
     last_url = url_format.format(999999)
     with urlfetch.fetch(last_url, cache, 120) as f:
-        html = lxml.html.parse(f)
+        last_page = json.load(f)
     logger.info(last_url)
-    last = html.xpath('//*[@id="content"]//*[contains(concat(" ", @class,'
-                      '" "), " paginate ")]//strong[@class="page"]/em/text()')
-    last_html = html
-    last = int(last[0])
+    last = int(last_page['pageInfo']['lastPage'])
     def get_html(page):
         if page == last:
             return last_html
         url = url_format.format(page)
         with urlfetch.fetch(url, cache, 120) as f:
             logger.info(url)
-            html = lxml.html.parse(f)
-        return html
+            page = json.load(f)
+        return page
     pool = Pool(POOL_SIZE)
-    htmls = pool.map(get_html, xrange(1, last + 1))
-    for html in htmls:
-        links = html.xpath('//*[@id="content"]//table[@class="challengeList"]'
-                           '//td/*[@class="fl"]/a')
-        for a in links:
-            href = a.attrib['href']
-            query = href[href.index('?') + 1:]
-            title_id = int(werkzeug.urls.url_decode(query)['titleId'])
-            yield title_id, a.xpath('./img/@title')[0]
+    pages = pool.map(get_html, xrange(1, last + 1))
+    for page in pages:
+        for comic in page['list']:
+            yield int(comic['titleId']), comic['titleName']
 
 
 @app.route('/bestchallenge')
