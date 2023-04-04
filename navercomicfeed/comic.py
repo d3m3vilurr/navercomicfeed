@@ -115,7 +115,7 @@ class Title(object):
     """
 
     __slots__ = ('title_id', 'session', 'offset', 'limit', 'cache', '_title',
-                 '_description', '_artists', '_info', '_list_html', '_list_page')
+                 '_description', '_artists', '_info', '_list', '_list_page')
 
     def __init__(self, title_id, session, offset=0, limit=None, cache=None):
         self.title_id = title_id
@@ -135,22 +135,22 @@ class Title(object):
             logger.info('cache hit: %s', url)
         return self._info
 
-    def _get_list_html(self, page=None, pair=False):
-        logger = self.get_logger('_get_list_html')
+    def _get_list(self, page=None, pair=False):
+        logger = self.get_logger('_get_list')
         p = page or 1
         url = LIST_URL.format(self.title_id)
         params = url, ('&' if '?' in url else '?'), p
         url = '{0}{1}page={2}'.format(*params)
-        if not hasattr(self, '_list_html') or page and self._list_page != page:
+        if not hasattr(self, '_list') or page and self._list_page != page:
             with urlfetch.fetch(url, self.cache) as f:
                 logger.info('url fetched: %s', url)
-                self._list_html = json.load(f)
+                self._list = json.load(f)
             self._list_page = page
         else:
             logger.info('cache hit: %s', url)
         if pair:
-            return self._list_html, url
-        return self._list_html
+            return self._list, url
+        return self._list
 
     @property
     def title(self):
@@ -250,10 +250,10 @@ class Title(object):
         no_re = re.compile(r'[?&]no=(\d+)(&|$)')
         crawled_numbers = set()
         while True:
-            json = self._get_list_html(page)
-            webtoon_level = json['webtoonLevelCode']
+            episodes = self._get_list(page)
+            webtoon_level = episodes['webtoonLevelCode']
             title_type = TITLE_TYPE[webtoon_level]
-            for article in json['articleList']:
+            for article in episodes['articleList']:
                 # non free episode
                 if article['charge']:
                     continue
