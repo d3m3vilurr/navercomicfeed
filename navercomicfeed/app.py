@@ -31,6 +31,7 @@ import os.path
 import re
 import functools
 import itertools
+import json
 import contextlib
 import hmac
 import hashlib
@@ -50,7 +51,7 @@ from pool import Pool
 import urlfetch
 
 
-WEBTOON_LIST_URL = 'https://comic.naver.com/webtoon/creation.nhn?view=list'
+WEBTOON_LIST_URL = 'https://comic.naver.com/api/webtoon/titlelist/weekday'
 BESTCHALLENGE_LIST_URL = 'https://comic.naver.com/genre/bestChallenge.nhn'
 URL_TYPES = {
     'webtoon': 'https://comic.naver.com/webtoon/list.nhn?titleId={0}',
@@ -163,7 +164,7 @@ def get_title_thumbnail_url(title_id, pair=False, default=None):
     with urlfetch.fetch(url, cache, 120) as f:
         logger.info('downloaded title %d from %s', title_id, url)
         html = lxml.html.parse(f)
-        img = html.xpath('//div[@class="thumb"]//img/@src')
+        img = html.xpath('//meta[@property="og:image"]/@content')
         img_src = unicode(img[0])
         cache.set(cache_key, img_src)
         return (title_id, img_src) if pair else img_src
@@ -200,14 +201,12 @@ def cached_comics(cache_key, comics):
 
 def webtoon_comics():
     with urlfetch.fetch(WEBTOON_LIST_URL, cache, 120) as f:
-        html = lxml.html.parse(f)
-    links = html.xpath('//*[@id="content"]//*[@class="section"]/ul/li/a')
-    for a in links:
-        title = a.attrib['title']
-        href = a.attrib['href']
-        query = href[href.index('?') + 1:]
-        title_id = int(werkzeug.urls.url_decode(query)['titleId'])
-        yield title_id, title
+        parsed = json.load(f)
+    for weekday, comics in parsed.get('titleListMap', dict()).items():
+        for comic in comics:
+            title_id = int(comic['titleId'])
+            title = comic['titleName']
+            yield title_id, title
 
 
 @app.route('/webtoon')
