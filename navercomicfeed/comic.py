@@ -181,7 +181,6 @@ class Title(object):
         artists_ids = set()
         for _, authors in info['author'].items():
             for author in authors:
-                print(author)
                 artist_id = int(author['id'])
                 artist_name = author['name']
                 artist_url = author.get('blogUrl')
