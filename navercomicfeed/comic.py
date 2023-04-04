@@ -45,6 +45,7 @@ import sqlalchemy.sql.functions
 import futureutils
 import urlfetch
 import json
+import HTMLParser
 from pool import Pool
 
 
@@ -75,12 +76,13 @@ COMIC_IMAGE_URLS_XPATH2 = lxml.etree.XPath('//*[@id="comic_view_area"]'
 COMIC_IMAGE_URLS_JAVASCRIPT_PATTERN = re.compile('imageList = (?P<urls>\[.+\])')
 COMIC_DESCRIPTION_XPATH = lxml.etree.XPath('//*[@id="comic_view_area"]'
                                            '//*[@class="writer_info"]/p/text()')
-COMIC_DESCRIPTION_JAVASCRIPT_PATTERN = re.compile('"authorWords":(?P<desc>\".+\")')
+COMIC_DESCRIPTION_JAVASCRIPT_PATTERN = re.compile('"authorWords":\"(?P<desc>.+)\"')
 
 Session = sqlalchemy.orm.sessionmaker(autocommit=True)
 Session = sqlalchemy.orm.scoped_session(Session)
 Base = sqlalchemy.ext.declarative.declarative_base()
 
+unescape = HTMLParser.HTMLParser().unescape
 
 class Title(object):
     """A comic title that has one or more series of comics.
@@ -228,9 +230,14 @@ class Title(object):
                 m = class_re.match(img.attrib['class'])
                 if m:
                     image_urls.append(m.group(1))
-        # TODO extract string from javascript part
-        # `article: {"no":1,"subtitle":"msg","authorWords":"msg"},`
-        description = '.'
+        with urlfetch.fetch(comic_url, self.cache, expire) as f:
+            logger.info('url fetched: %s', comic_url)
+            desc_matches = COMIC_DESCRIPTION_JAVASCRIPT_PATTERN.search(f.read())
+            if desc_matches:
+                description = unescape(desc_matches.groupdict().get('desc'))
+            else:
+                description = '.'
+        description = description.decode('utf-8')
         comic = Comic(comic_url, no, title, book, image_urls,
                       description, published)
         logging.info(repr(comic))
