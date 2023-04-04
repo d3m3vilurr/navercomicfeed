@@ -309,7 +309,7 @@ def proxy_url_for(url, ignore_relative_path=True):
 def feed(type, title_id):
     session = Session()
     url = URL_TYPES[type].format(title_id)
-    title = Title(url, session, cache=cache)
+    title = Title(title_id, session, cache=cache)
     limit = request.values.get('limit', '')
     try:
         limit = int(limit)

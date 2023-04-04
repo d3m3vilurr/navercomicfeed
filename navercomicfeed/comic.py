@@ -19,10 +19,7 @@ This module implements the crawler and RDMBS-powered cache for it.
 
    The time zone of Naver Comic service. Asia/Seoul by default.
 
-.. data:: TITLE_XPATH
-.. data:: DESCRIPTION_XPATH
 .. data:: ARTIST_URL_FORMAT
-.. data:: ARTIST_PATTERN
 .. data:: COMIC_XPATH
 .. data:: COMIC_TITLE_XPATH
 .. data:: COMIC_URL_XPATH
@@ -47,38 +44,38 @@ import sqlalchemy.ext.declarative
 import sqlalchemy.sql.functions
 import futureutils
 import urlfetch
+import json
 from pool import Pool
 
 
+INFO_URL = 'https://comic.naver.com/api/article/list/info?titleId={0}'
+LIST_URL = 'https://comic.naver.com/api/article/list?titleId={0}'
+DETAIL_EPISODE_URL = 'https://comic.naver.com/{0}/detail?titleId={1}&no={2}'
+
+TITLE_TYPE = {
+    'WEBTOON': 'webtoon',
+    'BEST_CHALLENGE': 'bestChallenge',
+    'CHALLENGE': 'challenge',
+}
+
 POOL_SIZE = 20
 TZINFO = pytz.timezone('Asia/Seoul')
-TITLE_XPATH = lxml.etree.XPath('//*[@class="comicinfo"]//h2/text()')
-DESCRIPTION_XPATH = lxml.etree.XPath('//*[@class="comicinfo"]'
-                                     '/*[@class="detail"]/p/text()')
 ARTIST_URL_FORMAT = 'https://comic.naver.com/artistTitle.nhn?artistId={0.id}'
-ARTIST_LIST_PATTERN = re.compile(ur'''
-    var \s* artistData \s* = \s* \[ \s* ( .+? ) \s* \] \s* ; \s* var
-''', re.VERBOSE | re.DOTALL)
-ARTIST_PATTERN = re.compile(ur'''
-    { \s* ['"]? artistId ['"]? \s* : \s* (?P<id> \d+ ) \s* ,
-      \s* ['"]? nickname ['"]? \s* : \s* ['"] (?P<name> .*? ) ['"] \s*
-      (?: , \s* ['"]? blogUrl ['"]? \s* : \s* ['"] (?P<url> .*? ) ['"] \s* )?
-    } \s* ,?
-''', re.VERBOSE)
 COMIC_XPATH = lxml.etree.XPath('//*[@id="content"]/table[@class="viewList"]'
                                '//tr/td[@class="title"]/..')
 COMIC_TITLE_XPATH = lxml.etree.XPath('.//td[@class="title"]/a/text()')
 COMIC_URL_XPATH = lxml.etree.XPath('.//td[@class="title"]/a/@href')
 COMIC_PUBLISHED_AT_XPATH = lxml.etree.XPath('.//td[@class="num"]/text()')
-COMIC_IMAGE_URLS_XPATH = lxml.etree.XPath('//*[@id="content"]'
+COMIC_IMAGE_URLS_XPATH = lxml.etree.XPath('//*[@id="comic_view_area"]'
                                           '//*[@class="wt_viewer"]/img/@src')
-COMIC_IMAGE_URLS_XPATH2 = lxml.etree.XPath('//*[@id="content"]'
+COMIC_IMAGE_URLS_XPATH2 = lxml.etree.XPath('//*[@id="comic_view_area"]'
                                            '//*[@class="flip-cached_page"]'
                                            '//img[@src="" and starts-with('
                                            '@class, "real_url(")]')
 COMIC_IMAGE_URLS_JAVASCRIPT_PATTERN = re.compile('imageList = (?P<urls>\[.+\])')
-COMIC_DESCRIPTION_XPATH = lxml.etree.XPath('//*[@id="content"]'
+COMIC_DESCRIPTION_XPATH = lxml.etree.XPath('//*[@id="comic_view_area"]'
                                            '//*[@class="writer_info"]/p/text()')
+COMIC_DESCRIPTION_JAVASCRIPT_PATTERN = re.compile('"authorWords":(?P<desc>\".+\")')
 
 Session = sqlalchemy.orm.sessionmaker(autocommit=True)
 Session = sqlalchemy.orm.scoped_session(Session)
@@ -117,25 +114,37 @@ class Title(object):
 
     """
 
-    __slots__ = ('url', 'session', 'offset', 'limit', 'cache', '_title',
-                 '_description', '_artists', '_list_html', '_list_page')
+    __slots__ = ('title_id', 'session', 'offset', 'limit', 'cache', '_title',
+                 '_description', '_artists', '_info', '_list_html', '_list_page')
 
-    def __init__(self, url, session, offset=0, limit=None, cache=None):
-        self.url = url
+    def __init__(self, title_id, session, offset=0, limit=None, cache=None):
+        self.title_id = title_id
         self.session = session
         self.offset = offset
         self.limit = limit
         self.cache = None
 
+    def _get_info(self):
+        logger = self.get_logger('_get_info')
+        url = INFO_URL.format(self.title_id)
+        if not hasattr(self, '_info'):
+            with urlfetch.fetch(url, self.cache) as f:
+                logger.info('url fetched: %s', url)
+                self._info = json.load(f)
+        else:
+            logger.info('cache hit: %s', url)
+        return self._info
+
     def _get_list_html(self, page=None, pair=False):
         logger = self.get_logger('_get_list_html')
         p = page or 1
-        params = self.url, ('&' if '?' in self.url else '?'), p
+        url = LIST_URL.format(self.title_id)
+        params = url, ('&' if '?' in url else '?'), p
         url = '{0}{1}page={2}'.format(*params)
         if not hasattr(self, '_list_html') or page and self._list_page != page:
             with urlfetch.fetch(url, self.cache) as f:
                 logger.info('url fetched: %s', url)
-                self._list_html = lxml.html.parse(f)
+                self._list_html = json.load(f)
             self._list_page = page
         else:
             logger.info('cache hit: %s', url)
@@ -147,15 +156,15 @@ class Title(object):
     def title(self):
         """The title string."""
         if not hasattr(self, '_title'):
-            self._title = TITLE_XPATH(self._get_list_html())[0].strip()
+            self._title = self._get_info()['titleName'].strip()
         return self._title
 
     @property
     def description(self):
         """The description string."""
         if not hasattr(self, '_description'):
-            self._title = TITLE_XPATH(self._get_list_html())[0].strip()
-        return self._title
+            self._description = self._get_info()['synopsis'].strip()
+        return self._description
 
     def get_logger(self, name=None):
         cls = type(self)
@@ -164,30 +173,31 @@ class Title(object):
             names.append(name)
         return logging.getLogger('.'.join(names))
 
-    def _fetch_artists(self, html, ignore_cache=False):
+    def _fetch_artists(self, info, ignore_cache=False):
         if not ignore_cache and hasattr(self, '_artists') and self._artists:
             return
         logger = self.get_logger('_fetch_artists')
-        script = html.xpath('//script[contains(text(), "artistData")]'
-                            '/text()')
-        for s in script:
-            lst = ARTIST_LIST_PATTERN.search(s)
-            if not lst:
-                continue
-            lst = lst.group(1)
-            self._artists = [Artist(int(m.group('id')), m.group('name'),
-                                    m.group('url') or None)
-                             for m in ARTIST_PATTERN.finditer(lst)]
-            if self._artists:
-                logger.info('fetched artist list (%d)', len(self._artists))
-                break
+        self._artists = []
+        artists_ids = set()
+        for _, authors in info['author'].items():
+            for author in authors:
+                print(author)
+                artist_id = int(author['id'])
+                artist_name = author['name']
+                artist_url = author.get('blogUrl')
+                if artist_id in artists_ids:
+                    continue
+                artists_ids.add(artist_id)
+                self._artists.append(Artist(artist_id, artist_name, artist_url))
+        if len(self._artists):
+            logger.info('fetched artist list (%d)', len(self._artists))
 
     @property
     def artists(self):
         """The :class:`Artist` list."""
         if not hasattr(self, '_artists'):
             self._artists = []
-            self._fetch_artists(self._get_list_html())
+            self._fetch_artists(self._get_info())
         return self._artists
 
     def _fetch_comic_javascript(self, html_string):
@@ -203,7 +213,7 @@ class Title(object):
             logger.info('url fetched: %s', comic_url)
             comic_html = lxml.html.parse(f)
             comic_html_string = lxml.html.tostring(comic_html)
-        self._fetch_artists(comic_html)
+        self._fetch_artists(self._get_info())
         image_urls = COMIC_IMAGE_URLS_XPATH(comic_html)
         if image_urls:
             book = False
@@ -219,7 +229,9 @@ class Title(object):
                 m = class_re.match(img.attrib['class'])
                 if m:
                     image_urls.append(m.group(1))
-        description = u"\n\n".join(COMIC_DESCRIPTION_XPATH(comic_html))
+        # TODO extract string from javascript part
+        # `article: {"no":1,"subtitle":"msg","authorWords":"msg"},`
+        description = '.'
         comic = Comic(comic_url, no, title, book, image_urls,
                       description, published)
         logging.info(repr(comic))
@@ -230,7 +242,7 @@ class Title(object):
         logger = self.get_logger('_crawl_list')
         max = sqlalchemy.sql.functions.max
         max_no, = self.session.query(max(StoredComic.no)) \
-                              .filter_by(title_url=self.url) \
+                              .filter_by(title_id=self.title_id) \
                               .first()
         logger.info('max_no: %r', max_no)
         page = 1
@@ -238,13 +250,17 @@ class Title(object):
         no_re = re.compile(r'[?&]no=(\d+)(&|$)')
         crawled_numbers = set()
         while True:
-            html, title_url = self._get_list_html(page, pair=True)
-            for tr in COMIC_XPATH(html):
-                title = COMIC_TITLE_XPATH(tr)[0].strip()
-                href = COMIC_URL_XPATH(tr)[0]
-                href = urlparse.urljoin(title_url, href)
-                no = int(no_re.search(href).group(1))
-                published = COMIC_PUBLISHED_AT_XPATH(tr)[0]
+            json = self._get_list_html(page)
+            webtoon_level = json['webtoonLevelCode']
+            title_type = TITLE_TYPE[webtoon_level]
+            for article in json['articleList']:
+                # non free episode
+                if article['charge']:
+                    continue
+                title = article['subtitle']
+                no = int(article['no'])
+                href = DETAIL_EPISODE_URL.format(title_type, self.title_id, no)
+                published = article['serviceDateDescription']
                 try:
                     published = datetime.datetime.strptime(
                         re.sub(r'[A-Z]{3} (\d{4})$', r'\1',
@@ -257,6 +273,8 @@ class Title(object):
                                              if re.match(r'^\d+$', d))
                     missing_fields = 6 - len(published)
                     published = (published + (0,) * missing_fields)[:6]
+                    if published[0] < 100:
+                        published = (published[0] + 2000,) + published[1:]
                     published = datetime.datetime(*published)
                     published = pytz.utc.localize(published)
                 else:
@@ -288,7 +306,7 @@ class Title(object):
                 yield comic
                 count += 1
             stored_comics = self.session.query(StoredComic) \
-                                        .filter_by(title_url=self.url) \
+                                        .filter_by(title_id=self.title_id) \
                                         .order_by(StoredComic.published_at
                                                              .desc(),
                                                   StoredComic.no.desc())
@@ -308,7 +326,7 @@ class Title(object):
                 added_comics = set()
                 for comic in crawled_comics:
                     if comic.no not in added_comics:
-                        comic.store(self.session, self.url)
+                        comic.store(self.session, self.title_id)
                         added_comics.add(comic.no)
 
     def __getitem__(self, index):
@@ -323,7 +341,7 @@ class Title(object):
             if index.step is not None:
                 raise TypeError('slicing step is not supported')
             limit = index.stop - index.start if index.start else index.stop
-            sliced = Title(self.url, self.session,
+            sliced = Title(self.title_id, self.session,
                            index.start or 0, limit,
                            self.cache)
             for attr in self.__slots__:
@@ -443,7 +461,7 @@ class Comic(BaseComic):
         for attr in self.__slots__:
             setattr(self, attr, l[attr])
 
-    def store(self, session, title_url):
+    def store(self, session, title_id):
         """Stores the comic.
 
         :param session: an orm session
@@ -453,7 +471,7 @@ class Comic(BaseComic):
 
         """
         comic = self.stored_comic
-        comic.title_url = title_url
+        comic.title_id = title_id
         comic = session.merge(comic)
 
     @property
@@ -467,13 +485,13 @@ class StoredComic(Base, BaseComic):
     """Interchangeable, compatible, but persist version of :class:`Comic`
     object.
 
-    .. attribute:: title_url
+    .. attribute:: title_id
 
-       the series title URL.
+       the series title id.
 
     """
 
-    title_url = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
+    title_id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     url = sqlalchemy.Column(sqlalchemy.String, unique=True)
     no = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     title = sqlalchemy.Column(sqlalchemy.Unicode, nullable=False)
