@@ -260,7 +260,7 @@ class Title(object):
             webtoon_level = episodes['webtoonLevelCode']
             title_type = TITLE_TYPE[webtoon_level]
 
-            if page >= episodes['pageInfo']['lastPage']:
+            if page > episodes['pageInfo']['lastPage']:
                 stopped = True
                 break
             for article in episodes['articleList']:
