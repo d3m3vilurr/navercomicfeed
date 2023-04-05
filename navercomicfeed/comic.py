@@ -259,6 +259,10 @@ class Title(object):
             episodes = self._get_list(page)
             webtoon_level = episodes['webtoonLevelCode']
             title_type = TITLE_TYPE[webtoon_level]
+
+            if page >= episodes['pageInfo']['lastPage']:
+                stopped = True
+                break
             for article in episodes['articleList']:
                 # non free episode
                 if article['charge']:
@@ -285,7 +289,7 @@ class Title(object):
                     published = pytz.utc.localize(published)
                 else:
                     published = TZINFO.localize(published)
-                if no == max_no or no in crawled_numbers or page == episodes['pageInfo']['lastPage']:
+                if no == max_no or no in crawled_numbers:
                     stopped = True
                     break
                 comic_tuple = no, title, published, href
