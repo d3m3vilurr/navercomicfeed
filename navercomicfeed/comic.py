@@ -285,7 +285,7 @@ class Title(object):
                     published = pytz.utc.localize(published)
                 else:
                     published = TZINFO.localize(published)
-                if no == max_no or no in crawled_numbers:
+                if no == max_no or no in crawled_numbers or page == episodes['pageInfo']['lastPage']:
                     stopped = True
                     break
                 comic_tuple = no, title, published, href
