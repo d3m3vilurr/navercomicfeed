@@ -12,7 +12,7 @@ setup(name='NaverComicFeed',
       packages=['navercomicfeed'],
       package_dir={'navercomicfeed': 'navercomicfeed'},
       install_requires=['lxml', 'SQLAlchemy', 'pytz',
-                        'Flask==0.12', 'Flask-Cache',
+                        'Flask==1.0', 'Flask-Cache',
                         'Werkzeug==0.16'],
       license='LGPL v3')
 
