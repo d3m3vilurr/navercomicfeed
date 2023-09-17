@@ -181,7 +181,7 @@ class Title(object):
         logger = self.get_logger('_fetch_artists')
         self._artists = []
         artists_ids = set()
-        for _, authors in info['author'].items():
+        for _, authors in info.get('author', {}).items():
             for author in authors:
                 artist_id = int(author['id'])
                 artist_name = author['name']
@@ -190,6 +190,14 @@ class Title(object):
                     continue
                 artists_ids.add(artist_id)
                 self._artists.append(Artist(artist_id, artist_name, artist_url))
+        for author in info.get('communityArtists', []):
+            artist_id = int(author['artistId'])
+            artist_name = author['name']
+            artist_url = author.get('curationPageUrl')
+            if artist_id in artists_ids:
+                continue
+            artists_ids.add(artist_id)
+            self._artists.append(Artist(artist_id, artist_name, artist_url))
         if len(self._artists):
             logger.info('fetched artist list (%d)', len(self._artists))
 
